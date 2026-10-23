@@ -22,11 +22,11 @@ class FC2Crawler(Crawler):
         if not clean_number:
             return None
         url = f"{self.base_url}/article/{clean_number}/"
-        html = Selector(text=await self.client.get_html(url))
+        html = Selector(text=await self.client.get_html(url, cookies=self.cookies))
         return url if html.xpath(_ARTICLE_BLOCK) else None
 
     async def _scrape(self, url: str, options: FetchOptions | None = None) -> MediaMetadata | None:
-        text = await self.client.get_html(url)
+        text = await self.client.get_html(url, cookies=self.cookies)
         if not text:
             return None
 
@@ -49,7 +49,10 @@ class FC2Crawler(Crawler):
         poster_raw = extract_text(html, '//div[@class="items_article_MainitemThumb"]/span/img/@src')
         poster_url = self._ensure_https(poster_raw) if poster_raw else None
 
-        release_raw = extract_text(html, '//div[@class="items_article_softDevice"]/p[contains(text(),"販売日")]/text()')
+        release_raw = extract_text(
+            html,
+            '//div[@class="items_article_softDevice"]/p[contains(text(),"販売日") or contains(text(),"Sale Day")]/text()',
+        )
         release = self._parse_release(release_raw)
 
         studio = extract_text(html, '//div[@class="items_article_headerInfo"]/ul/li[last()]/a/text()')
