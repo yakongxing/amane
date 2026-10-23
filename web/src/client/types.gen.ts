@@ -1096,6 +1096,24 @@ export type ErrorRow = {
 };
 
 /**
+ * ExternalPlaybackResponse
+ */
+export type ExternalPlaybackResponse = {
+    /**
+     * Url
+     */
+    url: string;
+    /**
+     * Content Type
+     */
+    content_type: string;
+    /**
+     * Name
+     */
+    name: string;
+};
+
+/**
  * FacetBatchAction
  *
  * 分类批量动作; 两个动作都是整体赋值且幂等.
@@ -6354,6 +6372,44 @@ export type PlayStreamResponses = {
      */
     200: unknown;
 };
+
+export type ExternalPlaybackData = {
+    body?: never;
+    path: {
+        /**
+         * Source Id
+         */
+        source_id: string;
+        /**
+         * Metadata Id
+         */
+        metadata_id: number;
+        /**
+         * Key
+         */
+        key: string;
+    };
+    query?: never;
+    url: '/api/playback/{source_id}/{metadata_id}/streams/{key}/external';
+};
+
+export type ExternalPlaybackErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ExternalPlaybackError = ExternalPlaybackErrors[keyof ExternalPlaybackErrors];
+
+export type ExternalPlaybackResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExternalPlaybackResponse;
+};
+
+export type ExternalPlaybackResponse2 = ExternalPlaybackResponses[keyof ExternalPlaybackResponses];
 
 export type ListPluginsData = {
     body?: never;

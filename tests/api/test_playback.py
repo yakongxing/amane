@@ -1388,3 +1388,36 @@ class TestResolveCache:
             assert _resolve_count(app) == 2
         finally:
             server.shutdown()
+
+
+@pytest.mark.asyncio(loop_scope="function")
+async def test_browser_and_external_share_redirect_target(client: AsyncClient, repo: Repository, app: FastAPI) -> None:
+    body = _CACHING_PLUGIN.replace(
+        'url=self._config.url,\n            content_type="video/mp4",',
+        'url=self._config.url,\n            delivery="redirect",\n            content_type="video/mp4",',
+    )
+    write_plugin(app.state.runtime.config.cold.data_dir, _CACHED_SOURCE, body=body)
+    assert (await client.post("plugins/reload")).status_code == 200
+    metadata_id = await _seed_title(repo)
+    # 不可连接的上游证明宿主只返回地址, 不读取视频或解析终址.
+    url = "http://127.0.0.1:1/clip.mp4?sign=a%2Fb%3D"
+    await _configure_cached(client, behavior="upstream", url=url, cache_ttl=300)
+    stream = f"playback/{_CACHED_SOURCE}/{metadata_id}/streams/main"
+    for method in (client.get, client.head):
+        browser = await method(stream, follow_redirects=False)
+        assert browser.status_code == 302
+        assert browser.headers["location"] == url
+    playlist = await client.get(f"{stream}/index.m3u8", follow_redirects=False)
+    assert playlist.status_code == 302
+    assert playlist.headers["location"] == url
+    for _ in range(2):
+        external = await client.get(f"{stream}/external")
+        assert external.status_code == 200, external.text
+        assert external.json()["url"] == url
+        assert external.headers["cache-control"] == "private, no-store"
+    assert _resolve_count(app) == 1
+    await _configure_cached(client, behavior="upstream", url=url, cache_ttl=None)
+    assert (await client.get(f"{stream}/external")).status_code == 200
+    assert (await client.get(f"playback/{_CACHED_SOURCE}/999999/streams/main/external")).status_code == 404
+    await _configure_cached(client, behavior="hls", url=url, cache_ttl=None)
+    assert (await client.get(f"{stream}/external")).status_code == 409

@@ -1860,6 +1860,31 @@ export const ErrorRowSchema = {
     description: '回合异常; 文案直接进助手气泡.'
 } as const;
 
+export const ExternalPlaybackResponseSchema = {
+    properties: {
+        url: {
+            type: 'string',
+            title: 'Url'
+        },
+        content_type: {
+            type: 'string',
+            title: 'Content Type'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: [
+        'url',
+        'content_type',
+        'name'
+    ],
+    title: 'ExternalPlaybackResponse'
+} as const;
+
 export const FacetBatchActionSchema = {
     type: 'string',
     enum: [

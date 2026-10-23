@@ -104,3 +104,6 @@ OpenAPI 字符串联合若需运行时迭代, 集中放置于 `lib/exhaustive-ma
 `just generate` → OpenAPI 导出 + TS client 生成 (`web/src/client/` 为产物, 不手改); SPA 产物 `web/dist` 由 `src/amane/api/spa.py` 挂载, 缓存头与条件请求的约定见该文件. `vite.config.ts` 的 `legacy()` 声明运行期下限 (语法目标 + core-js polyfill), 面向版本落后的 Android WebView — 下限取舍见 [android.md](android.md).
 
 路由组件由 `tanstackRouter()` 的 `autoCodeSplitting` 拆为独立 chunk: 只服务单个路由的重型依赖必须留在该路由的 chunk, 从共享模块导入会把它移回入口 chunk. 类型、i18n 与 lint 的硬性约束由 `pnpm check` (tsc / oxlint / oxfmt / i18next extract) 把关.
+
+播放面板统一使用 `web/src/components/media/playback-player.tsx`, 开始与恢复播放保持当前全屏状态, 进入全屏须由用户操作触发; 外部播放菜单经 `external-player-button.tsx` 及生成的 SDK 读取直连地址, 协议链接和播放列表由 `web/src/lib/media/external-player.ts` 生成.
+外部入口仅接受无服务器请求头的 HTTP(S) 直连目标; 返回地址不附加 Amane 凭据, 客户端自行处理上游重定向. 网页跨站请求由 `web/index.html` 的引用来源策略禁止发送 Referer; 原生视频不支持元素级 `referrerpolicy`, 直连后的 Range 请求同样依赖文档策略.

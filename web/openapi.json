@@ -2248,6 +2248,69 @@
         }
       }
     },
+    "/api/playback/{source_id}/{metadata_id}/streams/{key}/external": {
+      "get": {
+        "tags": [
+          "playback"
+        ],
+        "summary": "External Playback",
+        "description": "读取当前流的直连地址，供用户主动调用外部播放器。",
+        "operationId": "external_playback",
+        "parameters": [
+          {
+            "name": "source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Source Id"
+            }
+          },
+          {
+            "name": "metadata_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "title": "Metadata Id"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9._-]{1,64}$",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalPlaybackResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/plugins": {
       "get": {
         "tags": [
@@ -8143,6 +8206,30 @@
         ],
         "title": "ErrorRow",
         "description": "回合异常; 文案直接进助手气泡."
+      },
+      "ExternalPlaybackResponse": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "content_type": {
+            "type": "string",
+            "title": "Content Type"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "url",
+          "content_type",
+          "name"
+        ],
+        "title": "ExternalPlaybackResponse"
       },
       "FacetBatchAction": {
         "type": "string",

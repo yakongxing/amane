@@ -634,51 +634,13 @@ function useFullscreenLandscape(controllerRef: RefObject<MediaControllerElement 
 }
 
 /**
- * 触屏上开始播放即进入全屏.
- *
- * 判据是指针类型: 全屏为横屏, 视口很宽, 依据宽度判断会退回鼠标形态. 请求经全屏按钮发出, 控制器据此同步
- * 自身的全屏状态.
- *
- * 已在全屏时不允许再次请求: 该按钮按 `mediaIsFullscreen` 二选一派发进入与退出两种请求, 全屏中暂停后恢复
- * 播放会被它退出全屏. 两个判据都不允许删除 — `mediaIsFullscreen` 是按钮上的属性, 它与 `fullscreenchange`
- * 的同步存在先后, 未同步时由 `document.fullscreenElement` 补充; WebKit 的元素级全屏只写在属性上, 不进入
- * 该字段. 没有用户手势或内核不支持时这次请求会被拒绝, 内联播放照常.
- *
- * 只负责进入全屏: 横屏由 `useFullscreenLandscape` 在进入全屏后锁定方向.
- */
-function useFullscreenOnPlay(
-  videoRef: RefObject<HTMLVideoElement | null>,
-  fullscreenButtonRef: RefObject<MediaFullscreenButtonElement | null>,
-  enabled: boolean,
-) {
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!enabled || video == null) {
-      return;
-    }
-
-    const handlePlay = () => {
-      const button = fullscreenButtonRef.current;
-      if (button == null || button.mediaIsFullscreen || document.fullscreenElement != null) {
-        return;
-      }
-      // `handleClick` 只从事件里读取指针类型 (决定进入全屏后是否交还焦点), 因此普通事件即可, 不必真的点击.
-      button.handleClick(new Event("click"));
-    };
-
-    video.addEventListener("play", handlePlay);
-    return () => video.removeEventListener("play", handlePlay);
-  }, [enabled, fullscreenButtonRef, videoRef]);
-}
-
-/**
  * 播放结束即退出全屏.
  *
  * 结束时画面停在最后一帧, 全屏状态下没有退出入口. 退出与进入均经由同一个按钮: 它按 `mediaIsFullscreen`
  * 二选一派发进入与退出请求, 控制器据此同步自身状态; 直接调用 `document.exitFullscreen` 会使按钮属性与
  * DOM 状态不一致.
  *
- * 判据与进入一致: 只在会自动进入全屏的形态下退出, 桌面上的手动全屏不受影响.
+ * 仅在触屏形态下退出, 桌面上的手动全屏不受影响.
  */
 function useExitFullscreenOnEnded(
   videoRef: RefObject<HTMLVideoElement | null>,
@@ -1171,7 +1133,7 @@ function useDragGestureGuard(
   return { onDragStart };
 }
 
-export type PlaybackPlayerProps = {
+type PlaybackPlayerProps = {
   href: string;
   kind: "video" | "hls";
   seekable: boolean;
@@ -1225,8 +1187,7 @@ export function PlaybackPlayer({
    * 粗指针 (触屏) 上倍速改为右侧滑出面板: 悬浮菜单依靠指针进入展开, 触屏既没有悬停也没有离开 —
    * 全屏播放为横屏, 视口很宽, 依据宽度判断会退回鼠标形态, 因此按指针类型判定.
    *
-   * 首帧必须取到真值, 不允许交由 effect 补充: 预告片挂载后立即开始播放, 该次播放的监听必须在此次挂载内
-   * 即具备粗指针.
+   * 首帧即按指针类型渲染控件, 避免触屏先显示悬浮菜单.
    */
   const coarsePointer = useMediaQuery("(pointer: coarse)", undefined, {
     getInitialValueInEffect: false,
@@ -1673,8 +1634,6 @@ export function PlaybackPlayer({
 
   useFullscreenScrollRestore(controllerRef);
   useFullscreenLandscape(controllerRef);
-  // 起播的监听必须先于起播本身注册: 预告片挂载后立即起播, 该次起播同样要进入全屏.
-  useFullscreenOnPlay(videoRef, fullscreenButtonRef, coarsePointer);
   useExitFullscreenOnEnded(videoRef, fullscreenButtonRef, coarsePointer);
   useAutoPlay(videoRef, autoPlay);
 

@@ -24,6 +24,7 @@ import {
   listPlaybackStreamsOptions,
 } from "@/client/@tanstack/react-query.gen";
 import type { PlaybackSourceOption, PlaybackStreamItem } from "@/client/types.gen";
+import { ExternalPlayerButton } from "@/components/media/external-player-button";
 import { EnumToggle } from "@/components/common/enum-toggle";
 import {
   APP_SHELL_HEADER_HEIGHT,
@@ -472,6 +473,9 @@ export function PlaybackPanel({
               </Text>
             )}
             {streamPicker}
+            {selected?.source_id === "nas.local" && selected.key != null && selected.available ? (
+              <ExternalPlayerButton key={selected.href} metadataId={metadataId} stream={selected} />
+            ) : null}
           </Group>
         </Group>
         {/* 播放窗口常驻: 探测中、出错与类型不支持均在同一外框内呈现, 页面高度不随状态突变. */}

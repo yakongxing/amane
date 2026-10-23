@@ -48,3 +48,11 @@ class PlaybackStreamListResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     items: list[PlaybackStreamItem] = Field(default_factory=list)
+
+
+class ExternalPlaybackResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    url: str
+    content_type: str
+    name: str

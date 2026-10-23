@@ -113,7 +113,9 @@ def validate_path_segment(value: str) -> str:
 
 #: 进路径的标识类型: 字符集由正则约束, 整值 ``.`` / ``..`` 由校验器拒绝.
 PathSegment = Annotated[
-    str, Field(min_length=1, max_length=64, pattern=PATH_SEGMENT_PATTERN), AfterValidator(validate_path_segment)
+    str,
+    Field(min_length=1, max_length=64, pattern=PATH_SEGMENT_PATTERN),
+    AfterValidator(validate_path_segment),
 ]
 
 
@@ -185,9 +187,10 @@ class FilePlaybackTarget(_PlaybackTargetBase):
 
 
 class UpstreamPlaybackTarget(_PlaybackTargetBase):
-    """HTTP origin fetched by the host reverse proxy."""
+    """HTTP 播放目标默认经由代理; 直连目标仅接受无自定义请求头的 HTTP(S) 地址."""
 
     kind: Literal["upstream"] = "upstream"
+    delivery: Literal["proxy", "redirect"] = "proxy"
     url: str
     headers: dict[str, str] = Field(default_factory=dict)
     content_type: str | None = None

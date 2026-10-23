@@ -152,7 +152,16 @@
     "playbackCopyTimestamp": "复制时间戳",
     "playbackCopyLink": "复制当前时间的链接",
     "playbackCopied": "已复制到剪贴板",
-    "playbackCopyFailed": "复制失败"
+    "playbackCopyFailed": "复制失败",
+    "externalPlayer": "外部播放器",
+    "externalLoading": "正在读取播放地址…",
+    "externalUnavailable": "该播放流暂时无法提供外部播放地址。",
+    "externalInstalled": "请选择已安装的播放器",
+    "externalSystemAndroid": "系统播放器（Android）",
+    "externalDownload": "下载播放列表",
+    "externalCopy": "复制播放地址",
+    "externalCopyFailed": "无法复制，请使用下载播放列表。",
+    "externalCopied": "已复制播放地址"
   },
   "browse": {
     "title": "分类浏览",

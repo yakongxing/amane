@@ -65,7 +65,10 @@ def _absolute_hls_uri(base_url: str, uri: str) -> str:
     if stripped.casefold().startswith(("http://", "https://")):
         return absolute
     base = urlparse(base_url)
-    if (parsed.scheme, parsed.netloc.casefold()) != (base.scheme, base.netloc.casefold()):
+    if (parsed.scheme, parsed.netloc.casefold()) != (
+        base.scheme,
+        base.netloc.casefold(),
+    ):
         raise SourceError(FailureReason.NO_USABLE_METADATA, detail="播放列表 URI 跨源")
     return absolute
 
@@ -418,7 +421,7 @@ class PlaybackFactory:
         self,
         source_id: str,
         query: PlaybackQuery,
-        target: HlsPlaybackTarget | None = None,
+        target: PlaybackTarget | None = None,
     ) -> str:
         resolved = target if target is not None else await self.resolve(source_id, query)
         if not isinstance(resolved, HlsPlaybackTarget):

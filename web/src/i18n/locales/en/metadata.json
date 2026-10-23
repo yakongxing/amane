@@ -155,7 +155,16 @@
     "playbackCopyTimestamp": "Copy timestamp",
     "playbackCopyLink": "Copy link to current time",
     "playbackCopied": "Copied to clipboard",
-    "playbackCopyFailed": "Copy failed"
+    "playbackCopyFailed": "Copy failed",
+    "externalPlayer": "External player",
+    "externalLoading": "Loading playback address…",
+    "externalUnavailable": "An external playback address is not available for this stream.",
+    "externalInstalled": "Choose an installed player",
+    "externalSystemAndroid": "System player (Android)",
+    "externalDownload": "Download playlist",
+    "externalCopy": "Copy playback URL",
+    "externalCopyFailed": "Could not copy. Download the playlist instead.",
+    "externalCopied": "Playback URL copied"
   },
   "browse": {
     "title": "Browse",

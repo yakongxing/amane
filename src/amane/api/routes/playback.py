@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from typing import Annotated
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, HTTPException, Path, Request, Response
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from ...net.errors import SourceError
 from ...playback.factory import SOURCE_ID_MAX_LEN, ListedSource, PlaybackFactory
@@ -12,9 +13,15 @@ from ...playback.hls import PLAYLIST_CACHE_CONTROL, is_hls_content_type
 from ...playback.href import playlist_href, stream_href, subtitle_href
 from ...playback.proxy import NOSNIFF
 from ...playback.query import playback_query
-from ...plugins.api import PATH_SEGMENT_PATTERN, FilePlaybackTarget, PlaybackQuery, UpstreamPlaybackTarget
+from ...plugins.api import (
+    PATH_SEGMENT_PATTERN,
+    FilePlaybackTarget,
+    PlaybackQuery,
+    UpstreamPlaybackTarget,
+)
 from ..deps import RepoDep, RuntimeDep
 from ..models.playback import (
+    ExternalPlaybackResponse,
     PlaybackSourceListResponse,
     PlaybackSourceOption,
     PlaybackStreamItem,
@@ -96,7 +103,10 @@ async def list_playback_sources(runtime: RuntimeDep) -> Response:
             PlaybackSourceOption(source_id=option.source_id, name=option.name) for option in factory.source_options()
         ]
     )
-    return JSONResponse(content=body.model_dump(mode="json"), headers={"Cache-Control": "private, no-cache"})
+    return JSONResponse(
+        content=body.model_dump(mode="json"),
+        headers={"Cache-Control": "private, no-cache"},
+    )
 
 
 @router.get("/{source_id}/{metadata_id}/streams", response_model=PlaybackStreamListResponse)
@@ -281,6 +291,40 @@ async def play_stream_head(
     return await _play(request, source_id, metadata_id, key, repo, runtime)
 
 
+@router.get(
+    "/{source_id}/{metadata_id}/streams/{key}/external",
+    response_model=ExternalPlaybackResponse,
+)
+async def external_playback(
+    source_id: str,
+    metadata_id: Annotated[int, Path(ge=1)],
+    key: Annotated[str, Path(pattern=_PATH_SEGMENT_PATTERN)],
+    repo: RepoDep,
+    runtime: RuntimeDep,
+) -> Response:
+    """读取当前流的直连地址，供用户主动调用外部播放器。"""
+    factory = await _require_factory(source_id, runtime)
+    query = await _load_query(repo, metadata_id, key)
+    try:
+        target = await factory.resolve(source_id, query)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="没有可播放的流") from None
+    except SourceError as exc:
+        raise _playback_http_error(exc) from exc
+    if not isinstance(target, UpstreamPlaybackTarget) or target.delivery != "redirect":
+        raise HTTPException(status_code=409, detail="该播放流没有可供外部播放器直接访问的地址")
+    _validate_redirect_target(target)
+    body = ExternalPlaybackResponse(
+        url=target.url,
+        content_type=target.content_type or "video/mp4",
+        name=query.number,
+    )
+    return JSONResponse(
+        content=body.model_dump(),
+        headers={**NOSNIFF, "Cache-Control": "private, no-store"},
+    )
+
+
 async def _require_factory(source_id: str, runtime: RuntimeDep) -> PlaybackFactory:
     if len(source_id) > SOURCE_ID_MAX_LEN:
         raise HTTPException(status_code=404, detail="播放源不存在")
@@ -290,6 +334,43 @@ async def _require_factory(source_id: str, runtime: RuntimeDep) -> PlaybackFacto
     if not factory.known_source(source_id) or not factory.enabled(source_id):
         raise HTTPException(status_code=404, detail="播放源不存在")
     return factory
+
+
+def _validate_redirect_target(target: UpstreamPlaybackTarget) -> None:
+    """校验客户端可直接访问的播放地址，不传递服务器请求头。"""
+    try:
+        parsed = urlsplit(target.url)
+        valid = (
+            parsed.scheme.casefold() in {"http", "https"}
+            and bool(parsed.hostname)
+            and parsed.username is None
+            and parsed.password is None
+            and not any(char.isspace() or ord(char) < 32 or ord(char) == 127 for char in target.url)
+            and "\\" not in target.url
+        )
+        _ = parsed.port
+    except ValueError:
+        valid = False
+    if not valid:
+        raise HTTPException(status_code=502, detail="播放跳转地址无效")
+    if target.headers:
+        raise HTTPException(status_code=502, detail="直连播放不能携带服务器自定义请求头")
+
+
+def _redirect_response(target: UpstreamPlaybackTarget) -> Response | None:
+    """显式选择直连时返回重定向，不访问播放来源。"""
+    if target.delivery != "redirect":
+        return None
+    _validate_redirect_target(target)
+    return RedirectResponse(
+        target.url,
+        status_code=302,
+        headers={
+            **NOSNIFF,
+            "Cache-Control": "private, no-store",
+            "Referrer-Policy": "no-referrer",
+        },
+    )
 
 
 async def _playlist(
@@ -303,7 +384,12 @@ async def _playlist(
     factory = await _require_factory(source_id, runtime)
     query = await _load_query(repo, metadata_id, selected_key)
     try:
-        text = await factory.hls_playlist_text(source_id, query)
+        target = await factory.resolve(source_id, query)
+        if isinstance(target, UpstreamPlaybackTarget):
+            redirect = _redirect_response(target)
+            if redirect is not None:
+                return redirect
+        text = await factory.hls_playlist_text(source_id, query, target)
     except LookupError:
         raise HTTPException(status_code=404, detail="没有可播放的流") from None
     except SourceError as exc:
@@ -385,6 +471,9 @@ async def _play(
             headers={**NOSNIFF, "Cache-Control": "private"},
         )
     if isinstance(target, UpstreamPlaybackTarget):
+        redirect = _redirect_response(target)
+        if redirect is not None:
+            return redirect
         return await factory.stream.proxy(request, source_id=source_id, target=target)
     try:
         text = await factory.hls_playlist_text(source_id, query, target)

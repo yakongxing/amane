@@ -9,7 +9,7 @@
 
 影片来源通过一个窄接口接收 `SearchQuery` 并返回 `MediaMetadata`, 随后进入现有聚合 DAG. `MediaMetadata.actors` 为 `list[FilmActor]`, 也接受 `list[str]` (性别 `unknown`), API 版本号不因此递增; 性别契约见 [crawlers.md](crawlers.md).
 
-播放源接收主机装配的当前 Metadata 与关联文件快照, 返回探测结果或由主机执行的播放目标. 浏览器只请求 Amane 同源、已鉴权的固定媒体端点, 上游查找、鉴权、跨域与会话留在后端; HTTP 形状见 [api.md](api.md).
+播放源接收主机装配的当前 Metadata 与关联文件快照, 返回探测结果或由主机执行的播放目标. 代理目标通过 Amane 同源、已鉴权的媒体端点读取, 来源鉴权与会话保留在后端; 显式直连目标与外部播放器调用的边界见 [frontend.md](frontend.md). HTTP 形状见 [api.md](api.md).
 
 插件是可信的进程内纯 Python: `importlib` 从数据目录加载 `plugin.py`, 与主机共用解释器, 没有进程隔离. 插件不能声明自己的 pip 依赖或原生扩展, 只使用主机已提供的 API (经 `amane.plugin` 与 `context.http_client`). **标准库可以放心 import**: 桌面打包版按平台收集整个标准库 (只排除依赖包外产物的 GUI 与安装器, 见 [desktop.md](desktop.md)), Docker 与源码运行用的是完整标准库. 第三方包与原生扩展不可用: 安装时导入失败的模块以可读的 422 报出, 已放好的目录在发现期进入 `failures`.
 
@@ -57,7 +57,7 @@ descriptor 声明来源能力、支持的内容类型、语言、访问 URL、`t
 主机不提供内置播放源: 播放源只来自插件, 本地文件播放由插件声明 `file` 目标实现. 播放目标由主机执行, 插件只声明:
 
 - `file`: 已入库文件. 插件回送快照 `query.files` 里的路径, 主机自行打开并输出. 快照的 `content_type` 是**条目**类型, 这一份文件自己的来路标记看 `mosaic` (判无码用 `content_type == "uncensored" or mosaic == "uncensored"`, 与主机 `parsing/file_info.py::shows_uncensored` 同口径). 主机只接受该条目已索引文件之一 (两侧都执行 `resolve()` 后逐条比较, 索引里的符号链接与插件回送的等价形式视为同一个文件, 因此指向库外的符号链接照常可播); 不检查库根与 `safe_dirs`. 路径不在索引中、或索引里的文件已从磁盘消失, 均返回 502 与可读原因; 条目没有已索引文件时一律拒绝. 长度为 0 的文件由插件在探测阶段拒绝, 主机对它发出的任何 Range 都不可满足.
-- `upstream`: 上游 URL 与仅服务端使用的请求头. 主机反向代理并转发单段 Range, 密钥不得出现在响应头或重定向 Location; 指向播放列表的 `upstream` 仍拒绝, 清单必须经由 `hls`.
+- `upstream`: 上游 URL 与仅服务端使用的请求头. 默认反向代理并转发单段 Range; 显式直连时校验地址和空请求头后返回 302, 密钥不得出现在响应头或重定向 Location; 指向播放列表的代理目标仍拒绝, 代理清单必须经由 `hls`.
 - `hls`: 插件提供 locator, 主机把清单 URI 改写到本机前缀并反向代理分片、密钥与子清单; 相对 URI 解析后必须与该份清单 Origin 相同, 清单内不得残留上游 Origin. 无法定位的 URI 只作废自己 (登记一个必定失败的 token, 请求时返回 502 与原因), 清单其余部分照常可播; 密钥标签的 URI 例外 — 缺密钥整份清单都播不了, 直接让整份清单 502.
 
 `key` 由插件声明并保证在同一来源与条目内**稳定且唯一**: 浏览器地址、解析结果缓存、HLS 分片 token 的归属都按它区分, 改动它等于让在播地址失效. 主机不解释 `key` 的含义, 也不核对它是否对应该条目的某个文件 — 认不出来的 `key` 由插件自己以 `SourceError(NO_USABLE_METADATA)` 拒绝. 列表每一行的展示名是 `来源名 · 流的展示名`, 因此 `name` 里不要重复来源名; 主机按来源拼接、原样输出, 不二次排序, 前端默认选中第一条可播的. 来源之间的先后是纯客户端的用户偏好 (插件页维护, 前端据此重排来源列表), 主机不持久化播放源顺序.
@@ -72,7 +72,7 @@ descriptor 声明来源能力、支持的内容类型、语言、访问 URL、`t
 
 码流 I/O 不复用刮削 `HttpClient` / `WebClient`, 改用独立流式客户端 (通道并发上限、`Accept-Encoding: identity`、不跟随重定向、剥离 hop-by-hop 与 `Set-Cookie`、任何失败路径都必须归还通道额度). 分片按「非播放列表即放行」处理, 不设媒体类型白名单 — 上游 CDN 普遍伪装分片的扩展名与 `Content-Type`; 响应类型一律中和为 `application/octet-stream` (`text/vtt` 与文本型 AES 密钥保留原类型), 播放列表类型仍拒绝. 分片缓存按上游声明的类型区分: 媒体分片与初始化段可用不可变缓存, 密钥 URI 一律 `no-store`, 其余 4xx / 5xx 不写入不可变缓存.
 
-**token 表与探测缓存跨 rebuild 存活** (所有权在 `AppRuntime`), 只在插件集合变化 (安装 / 卸载 / 重载 / 启停) 时清空 — 播放中修改任意热配置不得让在播 HLS 会话的分片失效; **解析结果缓存相反, 每次 rebuild 都清空**. 探测失败与打开失败使用独立的进程内 TTL, 不复用图片代理负缓存, 也不把码流写入 `ResourceStore`.
+**token 表与探测缓存跨 rebuild 存活** (所有权在 `AppRuntime`), 只在插件集合变化 (安装 / 卸载 / 重载 / 启停) 时清空 — 播放中修改任意热配置不得让在播 HLS 会话的分片失效; **解析结果缓存每次 rebuild 都清空**. 探测失败与打开失败使用独立的进程内 TTL, 不复用图片代理负缓存, 也不把码流写入 `ResourceStore`.
 
 `SourceError.detail` 会原样进入 502 响应体并展示给终端用户, 不允许在其中写入上游 URL、密钥或签名参数. 路由层的 `source_id` 只限制长度, 第三方 ID 的命名空间规则只在 descriptor 加载期执行.
 
