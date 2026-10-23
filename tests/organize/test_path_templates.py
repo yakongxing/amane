@@ -508,6 +508,7 @@ class TestSourceVariables:
         [
             ("C.mp4", "C.mp4"),
             ("A/B/C.mp4", "A/B/C.mp4"),
+            ("A/B/C.strm", "A/B/C.strm"),
         ],
     )
     def test_raw_relpath_is_source_relative_to_library_root(self, media: Path, source_rel: str, expected: str):

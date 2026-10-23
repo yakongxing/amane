@@ -88,3 +88,15 @@ class TestUnwantedKind:
         scan = LibraryScan(blacklist_patterns=["ad"])
 
         assert scan.unwanted_kind(Path("/lib/.amane_trash/ad.mkv")) is None
+
+
+def test_recursive_absolute_scope(tmp_path: Path) -> None:
+    root = tmp_path / "scope"
+    scan = LibraryScan(patterns=[f"{root.as_posix()}/**/*.strm"])
+    for path, expected in [
+        (root / "a.strm", LibraryFileKind.MEDIA),
+        (root / "one" / "two" / "a.strm", LibraryFileKind.MEDIA),
+        (root / "one" / "a.mp4", None),
+        (tmp_path / "outside" / "a.strm", None),
+    ]:
+        assert scan.classify(path) is expected
