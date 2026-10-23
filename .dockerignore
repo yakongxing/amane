@@ -1,5 +1,6 @@
 # VCS / IDE
 .git
+.worktrees
 .github
 .claude
 .cursor
