@@ -68,11 +68,20 @@ from .metadata import (
     MetadataDetailResponse,
     MetadataListResponse,
     MetadataLocksRequest,
+    MetadataMergeEntriesRequest,
     MetadataResponse,
     MetadataUserTagsRequest,
     PartialMetadata,
+    SemanticHitInfo,
 )
-from .network import ConnectivityCheckRequest, ConnectivityItemResponse, ConnectivityReportResponse
+from .network import (
+    BrowserBackendItemResponse,
+    BrowserBackendReportResponse,
+    BrowserInstanceResponse,
+    ConnectivityCheckRequest,
+    ConnectivityItemResponse,
+    ConnectivityReportResponse,
+)
 from .playback import (
     PlaybackSourceListResponse,
     PlaybackSourceOption,
@@ -82,8 +91,10 @@ from .playback import (
 )
 from .plugins import PluginConfigUpdate, PluginListResponse, PluginResponse
 from .schedules import ScheduleCreateRequest, ScheduleListResponse, ScheduleResponse, ScheduleUpdateRequest
+from .semantic import SemanticDiagnosticsResponse, SemanticModelCounts, SemanticStatusResponse
 from .system import DesktopResponse, ReleaseResponse
 from .tasks import (
+    ActorPushSubmission,
     ActorScrapeSubmission,
     CleanupSubmission,
     DeleteSubmission,
@@ -95,6 +106,8 @@ from .tasks import (
     ScanInvalidSubmission,
     ScrapeRequest,
     ScrapeSubmission,
+    SemanticBenchmarkSubmission,
+    SemanticIndexSubmission,
     TaskBatchAction,
     TaskBatchRequest,
     TaskBatchResponse,
@@ -119,11 +132,15 @@ __all__ = [
     "ActorGenderBatchResponse",
     "ActorListResponse",
     "ActorLocksRequest",
+    "ActorPushSubmission",
     "ActorResponse",
     "ActorScrapeRequest",
     "ActorScrapeSubmission",
     "ActorUpdateRequest",
     "ActorUserTagsRequest",
+    "BrowserBackendItemResponse",
+    "BrowserBackendReportResponse",
+    "BrowserInstanceResponse",
     "CleanupSubmission",
     "CommentCreateRequest",
     "CommentResponse",
@@ -198,6 +215,12 @@ __all__ = [
     "ScheduleUpdateRequest",
     "ScrapeRequest",
     "ScrapeSubmission",
+    "SemanticBenchmarkSubmission",
+    "SemanticDiagnosticsResponse",
+    "SemanticHitInfo",
+    "SemanticIndexSubmission",
+    "SemanticModelCounts",
+    "SemanticStatusResponse",
     "TaskBatchAction",
     "TaskBatchRequest",
     "TaskBatchResponse",

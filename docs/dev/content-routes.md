@@ -35,13 +35,13 @@
 
 **avsox.click** — 日本无码情报站. 同源 AVMOO = 有碼, AVHEAT = 欧美 (`avheat.shop`), 项目只接入 AVSOX. 搜索对有无短横线都能命中, `_` 与 `-` 是两部; 对不上不取首条.
 
-**jav321.com** — DMM 目录镜像; 有碼与素人排链尾, 无无碼 / FC2 / 欧美入口.
+**jav321.com** — DMM 目录镜像; 有碼与素人排链尾, 无无碼 / FC2 / 欧美入口. 检索是 POST `sn` 表单, 详情地址为站内 content id; 相近番号也会被重定向, 必须按详情页的 品番 确认.
 
 **javlibrary.com** — 常命中 Cloudflare 等待页, 不纳入默认表.
 
 **avbase.net** — 名单来自用户投稿而非官方; 受 Cloudflare managed challenge 保护, 指纹不过关即拦截. 不纳入默认表: 进入 `censored` 会让每次刮削多一次可能退化为浏览器 / solver 的请求.
 
-**airav.io** — 中文标题补强, 不是国产分区; 国产路由里置于 iqqtv 之后, fc2 路由里链尾 (官方电子市场下架的作品只剩这类索引站收录); 站内番号恒写 `FC2-PPV-<id>`, 检索词用该写法.
+**airav.io** — 中文标题补强, 不是国产分区; 国产路由里置于 iqqtv 之后, fc2 路由里链尾 (官方电子市场下架的作品只剩这类索引站收录); FC2 番号站内恒写 `FC2-PPV-<id>`, 检索词用该写法; caribbeancom / 1pondo 等来源在番号前加来源名 (`caribbeancom_051318-665`), 比对与取值都先剥除.
 
 **iqqtv** (`iqq5.xyz` 会跳转到 `iqqk4.quest` 一类轮换域) — 导航有國產区 (爱豆傳媒、杏吧傳媒等, 不是 MD 号为主), 国产路由第一源; 爬虫带 `/cn|/jp` 语言前缀.
 
@@ -61,7 +61,7 @@
 
 **kin8tengoku.com** — 单厂牌, 不纳入默认表. 番号 `KIN8-####` 的类型归欧美链 (第一源 theporndb, 按 4 位 `movie_id` 对齐), `release` 恒为空; 番号须带 `kin8` / `kin8tengoku` 前缀, 数字段 1–9999 补零为 4 位拼详情页, 越界或无前缀不发 HTTP. 页是 Next.js 应用, 可解析的只剩 `og:` 元标签与 CSS-module 类名.
 
-**theporndb.net** — 未登录跳转 `/login`; 无 token 时影片 / 演员爬虫都直接 `None`. 欧美路由第一, 与影片共用 `site_config.api_token`. 欧美条目 `code` 是 `studio:title-slug`, 与文件名番号不同构, 日期号 (`Studio.YY.MM.DD`) 按片商 + 发布日期确认.
+**theporndb.net** — 未登录跳转 `/login`; 无 token 时影片 / 演员爬虫都直接 `None`. 欧美路由第一, 与影片共用 `site_config.api_token`. 欧美条目 `code` 是 `studio:title-slug`, 与文件名番号不同构, 日期号 (`Studio.YY.MM.DD`) 按片商 + 发布日期确认. GraphQL 面是自研的 stash-box 兼容层, 可空标注与上游不一致: 请求按上游最严的形态构造, 应答按最宽松的形态解析.
 
 **official** — Will / Outvision 官网集群; 前缀对不上不发 HTTP.
 

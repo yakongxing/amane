@@ -35,6 +35,7 @@ from ..enums import (
     WatermarkCorner,
     WatermarkKind,
 )
+from ..net.bsk import resolve_bsk_path
 from ..parsing import ContentType
 from ..plugins.models import PluginConfig
 from ..sr import SrPreset
@@ -194,6 +195,9 @@ class ColdSettings(BaseSettings):
     token: str | None = None
     """``off`` 显式关闭; 为空时自动生成并持久化到 data_dir/token."""
 
+    image_token: str | None = None
+    """``off`` 显式关闭; 为空时自动生成并持久化到 data_dir/image_token. 只用于资源端点."""
+
     supervised: bool = False
     """为真时挂载重启端点 (AMANE_SUPERVISED=1)."""
 
@@ -286,7 +290,7 @@ class SiteConfig(BaseModel):
     @field_validator("browser_backend")
     @classmethod
     def _override_engine_available(cls, v: BrowserBackendName | None) -> BrowserBackendName | None:
-        return None if v is None else _require_browser_engine(v)
+        return None if v is None else _require_browser_engine(v, strict=False)
 
     api_token: str | None = Field(default=None, json_schema_extra={"x-visible-keys": _SITES_WITH_API_TOKEN})
     official_routes: dict[str, Manufacturer] = Field(
@@ -525,8 +529,19 @@ class WatermarkConfig(BaseModel):
         return _complete_frozen_dict(v, dict.fromkeys(WatermarkKind, WatermarkCorner.TOP_LEFT))
 
 
-def _require_browser_engine(backend: BrowserBackendName) -> BrowserBackendName:
+def _require_browser_engine(
+    backend: BrowserBackendName, *, bsk_path: str | None = None, strict: bool = True
+) -> BrowserBackendName:
     """本地引擎不在当前分发时拒绝配置, 不等到启动浏览器才报 ModuleNotFoundError."""
+    if backend is BrowserBackendName.BSK:
+        # 来源级覆盖看不到全局 bsk_path, 只在这一层放行, 运行期再报.
+        if not strict:
+            return backend
+        if resolve_bsk_path(bsk_path) is None:
+            raise ValueError(
+                "浏览器后端 bsk 不可用: 未找到 bsk CLI, 请安装 BrowserSkill 并连接浏览器扩展, 或改用 solver"
+            )
+        return backend
     module = {BrowserBackendName.PATCHRIGHT: "patchright", BrowserBackendName.CAMOUFOX: "camoufox"}.get(backend)
     if module is None:
         return backend
@@ -539,15 +554,20 @@ def _require_browser_engine(backend: BrowserBackendName) -> BrowserBackendName:
 
 class BrowserConfig(BaseModel):
     backend: BrowserBackendName = BrowserBackendName.OFF
+    bsk_path: str | None = Field(
+        default=None,
+        json_schema_extra={"x-widget": "PathPicker", "x-path-type": "file"},
+    )
+    """``bsk`` CLI 的路径; 桌面壳的 PATH 不含登录 shell 条目, 留空时从 PATH 查找."""
     timeout: int = Field(default=30000, ge=5000, le=120000)
     """页面导航默认超时 (毫秒); 单次渲染可覆盖."""
     solver_url: str = Field(default="http://127.0.0.1:8191", pattern=r"^https?://.+")
     """FlareSolverr 兼容服务地址; 仅 ``solver`` 后端使用. 服务不允许暴露到公网."""
 
-    @field_validator("backend")
-    @classmethod
-    def _engine_available(cls, v: BrowserBackendName) -> BrowserBackendName:
-        return _require_browser_engine(v)
+    @model_validator(mode="after")
+    def _engine_available(self) -> BrowserConfig:
+        _require_browser_engine(self.backend, bsk_path=self.bsk_path)
+        return self
 
 
 class NetworkConfig(BaseModel):
@@ -710,6 +730,36 @@ class AgentConfig(BaseModel):
         return data
 
 
+class MediaServerConfig(BaseModel):
+    """Emby / Jellyfin 人物推送; url 与 api_key 齐备才启用."""
+
+    kind: Literal["emby", "jellyfin"] = Field(default="jellyfin", description="媒体服务器类型")
+    url: str | None = Field(default=None, description="服务器地址, 含协议、端口与可选子路径")
+    api_key: str | None = Field(default=None, description="管理员 API Key")
+    verify_tls: bool = Field(default=True, description="校验 HTTPS 证书; 自签名证书可关闭")
+
+    @field_validator("url")
+    @classmethod
+    def _normalize_url(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        normalized = value.strip().rstrip("/")
+        if not normalized.startswith(("http://", "https://")):
+            raise ValueError("media_server.url 必须以 http:// 或 https:// 开头")
+        return normalized
+
+    @field_validator("api_key")
+    @classmethod
+    def _normalize_api_key(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip() or None
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.url and self.api_key)
+
+
 class ActorScrapingConfig(BaseModel):
     """资料来源顺序填空, 头像来源优先."""
 
@@ -727,6 +777,9 @@ class ActorScrapingConfig(BaseModel):
     auto_scrape: bool = True
     """影片刮削成功后自动入队该片演员的 ACTOR_SCRAPE; 已刮过的 Actor 跳过."""
 
+    auto_push: bool = Field(default=False, description="演员刮削成功后自动将该演员推送到媒体服务器")
+    """媒体服务器未配置时静默跳过."""
+
     gfriends_repo: str = Field(default="https://github.com/gfriends/gfriends", description="gFriends GitHub 仓库 URL")
 
     @field_validator("profile_sites")
@@ -738,6 +791,12 @@ class ActorScrapingConfig(BaseModel):
     @classmethod
     def _actor_image_sites(cls, v: list[SiteName]) -> list[SiteName]:
         return assert_sites_allowed(v, frozenset(ACTOR_IMAGE_SITES), field="image_sites")
+
+
+class SemanticConfig(BaseModel):
+    """封面与剧照语义检索. 模型身份由 ``semantic/models.py`` 的清单决定, 不随配置变化."""
+
+    auto_maintain: bool = Field(default=False, description="条目图片变化后立即增量索引; 打开时视觉模型常驻")
 
 
 class HotSettings(BaseModel):
@@ -788,10 +847,12 @@ class HotSettings(BaseModel):
         return data
 
     scraping: ScrapingConfig = ScrapingConfig()
+    media_server: MediaServerConfig = MediaServerConfig()
     actor_scraping: ActorScrapingConfig = ActorScrapingConfig()
     agent: AgentConfig = AgentConfig()
     network: NetworkConfig = NetworkConfig()
     sr: SrConfig = SrConfig()
+    semantic: SemanticConfig = SemanticConfig()
     watermark: WatermarkConfig = WatermarkConfig()
     llm: LLMConfig = LLMConfig()
     r18: R18Config = R18Config()

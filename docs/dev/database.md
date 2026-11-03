@@ -11,13 +11,14 @@
 |----|------|------|------------|
 | `amane.db` | SQLite | 主业务库 (metadata / tasks / resources ...) | ✅ 启动期 `upgrade head` |
 | `translations.db` | SQLite | LLM 译文缓存 (会话级, 删文件即清空) | ❌ 自建表, 见 [llm.md](llm.md) |
+| `embeddings.db` | SQLite | 语义向量 sidecar (删文件即清空) | ❌ 自建表, 见 [data-model.md](data-model.md) |
 | r18.dev 镜像 | **PostgreSQL** | 外部只读数据源 (用户自备实例) | ❌ schema 由 r18 dump 决定, 项目不拥有 |
 
 r18 库由项目导入 / 管理但 schema 不受我们控制, **不能纳入 Alembic** — 项目对其只读; 兼容性靠导入期探针校验, 不靠迁移, 见 [crawlers.md](crawlers.md).
 
 ## SQLite 选型
 
-个人媒体库单机部署: 无需多进程并发写入, 零运维 (Docker 用户不必额外起数据库容器), 文件级备份方便. 已知约束是不支持部分 ALTER TABLE、写入排他锁、JSON 字段无法高效查询 — 个人规模可接受, 超过百万行需评估迁移到 PostgreSQL. 手工备份必须用 online backup, WAL 模式下不能只 `cp amane.db`.
+个人媒体库单机部署: 无需多进程并发写入, 零运维 (Docker 用户不必额外起数据库容器), 文件级备份方便. 已知约束是不支持部分 ALTER TABLE、写入排他锁、JSON 字段无法高效查询 — 个人规模可接受, 超过百万行需评估迁移到 PostgreSQL. 手工备份必须用 online backup, WAL 模式下不能只 `cp amane.db`. 单条语句的绑定变量数有上限 (SQLite 3.32 起为 32766), 数量随数据增长的 id 列表必须经 `src/amane/db/repos/base.py::chunks` 分批绑定, 不得整批放进一个 `IN`.
 
 ## 写入事务边界
 

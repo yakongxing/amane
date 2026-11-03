@@ -115,6 +115,78 @@ export type ActorLocksRequest = {
 };
 
 /**
+ * ActorPushResult
+ */
+export type ActorPushResult = {
+    /**
+     * Type
+     */
+    type?: 'actor_push';
+    /**
+     * Requested
+     */
+    requested: number;
+    /**
+     * Matched
+     */
+    matched: number;
+    /**
+     * Updated
+     */
+    updated: number;
+    /**
+     * Images
+     */
+    images: number;
+    /**
+     * Skipped
+     */
+    skipped: number;
+    /**
+     * Not Found
+     */
+    not_found: number;
+    /**
+     * No Image
+     */
+    no_image: number;
+    /**
+     * Missing
+     */
+    missing: number;
+    /**
+     * Failed
+     */
+    failed: number;
+    /**
+     * Failures
+     */
+    failures: Array<string>;
+};
+
+/**
+ * ActorPushSubmission
+ */
+export type ActorPushSubmission = {
+    /**
+     * Actor Ids
+     *
+     * 要推送的演员 ID; 空表示全部演员
+     */
+    actor_ids?: Array<number>;
+    /**
+     * Force
+     *
+     * 覆盖媒体服务器上已有的头像与人物字段
+     */
+    force?: boolean;
+    /**
+     * Type
+     */
+    type: 'actor_push';
+};
+
+/**
  * ActorResponse
  *
  * 详情填全量; 列表 (`GET /actors`) 只填卡片/表格字段, 其余 (简介/别名/标签/源字典/raw/锁) 为空.
@@ -313,6 +385,12 @@ export type ActorScrapingConfig = {
      * Auto Scrape
      */
     auto_scrape?: boolean;
+    /**
+     * Auto Push
+     *
+     * 演员刮削成功后自动将该演员推送到媒体服务器
+     */
+    auto_push?: boolean;
     /**
      * Gfriends Repo
      *
@@ -640,15 +718,60 @@ export type BodyInstallPlugin = {
 };
 
 /**
+ * BrowserBackendItemResponse
+ *
+ * 一个后端的可用性.
+ *
+ * ``detail`` 是环境抛出的原文 (缺模块、缺 CLI、浏览器未连接、solver 应答错误), 界面原样展示;
+ * ``version`` 目前只有 bsk 有 (daemon 版本).
+ */
+export type BrowserBackendItemResponse = {
+    backend: BrowserBackendName;
+    /**
+     * Available
+     */
+    available: boolean;
+    /**
+     * Detail
+     */
+    detail?: string | null;
+    /**
+     * Version
+     */
+    version?: string | null;
+    /**
+     * Browsers
+     */
+    browsers?: Array<BrowserInstanceResponse>;
+};
+
+/**
  * BrowserBackendName
  */
-export type BrowserBackendName = 'off' | 'patchright' | 'camoufox' | 'solver';
+export type BrowserBackendName = 'off' | 'patchright' | 'camoufox' | 'bsk' | 'solver';
+
+/**
+ * BrowserBackendReportResponse
+ *
+ * ``selected`` 是当前生效的后端, 供界面标出「已选但不可用」这一种组合.
+ */
+export type BrowserBackendReportResponse = {
+    selected: BrowserBackendName;
+    /**
+     * Items
+     */
+    items?: Array<BrowserBackendItemResponse>;
+};
 
 /**
  * BrowserConfig
  */
 export type BrowserConfig = {
     backend?: BrowserBackendName;
+    /**
+     * Bsk Path
+     */
+    bsk_path?: string | null;
     /**
      * Timeout
      */
@@ -657,6 +780,30 @@ export type BrowserConfig = {
      * Solver Url
      */
     solver_url?: string;
+};
+
+/**
+ * BrowserInstanceResponse
+ *
+ * bsk 已连接的浏览器实例; 只用于展示, 选择实例属于后续能力.
+ */
+export type BrowserInstanceResponse = {
+    /**
+     * Instance Id
+     */
+    instance_id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Extension Version
+     */
+    extension_version?: string | null;
+    /**
+     * Unresponsive
+     */
+    unresponsive?: boolean;
 };
 
 /**
@@ -1070,6 +1217,11 @@ export type DesktopResponse = {
  * 影片附属资源类型: 刮削写入 Resource, 整理时按库配置复制到库路径.
  */
 export type DownloadableResource = 'thumb' | 'poster' | 'extrafanart' | 'trailer';
+
+/**
+ * EmbeddingKind
+ */
+export type EmbeddingKind = 'cover' | 'still';
 
 /**
  * ErrorRow
@@ -1705,10 +1857,12 @@ export type HealthResponse = {
  */
 export type HotSettings = {
     scraping?: ScrapingConfig;
+    media_server?: MediaServerConfig;
     actor_scraping?: ActorScrapingConfig;
     agent?: AgentConfig;
     network?: NetworkConfig;
     sr?: SrConfig;
+    semantic?: SemanticConfig;
     watermark?: WatermarkConfig;
     llm?: LlmConfig;
     r18?: R18Config;
@@ -2459,6 +2613,38 @@ export type MediaListResponse = {
 };
 
 /**
+ * MediaServerConfig
+ *
+ * Emby / Jellyfin 人物推送; url 与 api_key 齐备才启用.
+ */
+export type MediaServerConfig = {
+    /**
+     * Kind
+     *
+     * 媒体服务器类型
+     */
+    kind?: 'emby' | 'jellyfin';
+    /**
+     * Url
+     *
+     * 服务器地址, 含协议、端口与可选子路径
+     */
+    url?: string | null;
+    /**
+     * Api Key
+     *
+     * 管理员 API Key
+     */
+    api_key?: string | null;
+    /**
+     * Verify Tls
+     *
+     * 校验 HTTPS 证书; 自签名证书可关闭
+     */
+    verify_tls?: boolean;
+};
+
+/**
  * MediaSortField
  */
 export type MediaSortField = 'number' | 'path' | 'status' | 'size' | 'created_at' | 'updated_at';
@@ -2625,6 +2811,10 @@ export type MetadataListResponse = {
      * Total
      */
     total: number;
+    /**
+     * Semantic Hits
+     */
+    semantic_hits?: Array<SemanticHitInfo>;
 };
 
 /**
@@ -2639,6 +2829,24 @@ export type MetadataLocksRequest = {
      * 锁定的字段集合; 空集解除全部锁定
      */
     fields?: Array<MetadataField>;
+};
+
+/**
+ * MetadataMergeEntriesRequest
+ */
+export type MetadataMergeEntriesRequest = {
+    /**
+     * Target Id
+     *
+     * 合并目标 Metadata ID; 其字段与已有站点快照保持不变
+     */
+    target_id: number;
+    /**
+     * Source Ids
+     *
+     * 待合并的 Metadata ID 列表; 按顺序补入 raw 快照
+     */
+    source_ids: Array<number>;
 };
 
 /**
@@ -3618,7 +3826,7 @@ export type RescrapeTarget = 'metadata' | 'actor';
 /**
  * RoutineType
  */
-export type RoutineType = 'cleanup' | 'upscale' | 'r18_import' | 'rescrape';
+export type RoutineType = 'cleanup' | 'upscale' | 'r18_import' | 'rescrape' | 'semantic_index';
 
 /**
  * RuntimePaths
@@ -3922,7 +4130,9 @@ export type ScheduleCreateRequest = {
         type: 'r18_import';
     } & R18ImportSubmission) | ({
         type: 'rescrape';
-    } & RescrapeSubmission);
+    } & RescrapeSubmission) | ({
+        type: 'semantic_index';
+    } & SemanticIndexSubmission);
 };
 
 /**
@@ -3967,7 +4177,9 @@ export type ScheduleResponse = {
         type: 'r18_import';
     } & R18ImportSubmission) | ({
         type: 'rescrape';
-    } & RescrapeSubmission);
+    } & RescrapeSubmission) | ({
+        type: 'semantic_index';
+    } & SemanticIndexSubmission);
     /**
      * Enabled
      */
@@ -4183,6 +4395,279 @@ export type SelectionSummaryResponse = {
      * Dropped
      */
     dropped?: number;
+};
+
+/**
+ * SemanticBenchmarkResult
+ */
+export type SemanticBenchmarkResult = {
+    /**
+     * Type
+     */
+    type?: 'semantic_benchmark';
+    /**
+     * Backend
+     */
+    backend: string;
+    /**
+     * Model
+     */
+    model: string;
+    /**
+     * Images Per Second
+     */
+    images_per_second: number;
+    /**
+     * Query Ms
+     */
+    query_ms: number;
+    /**
+     * Load Ms
+     */
+    load_ms: number;
+    /**
+     * Samples
+     */
+    samples: number;
+    /**
+     * Measured At
+     */
+    measured_at: string;
+};
+
+/**
+ * SemanticBenchmarkSubmission
+ */
+export type SemanticBenchmarkSubmission = {
+    /**
+     * Type
+     */
+    type: 'semantic_benchmark';
+};
+
+/**
+ * SemanticConfig
+ *
+ * 封面与剧照语义检索. 模型身份由 ``semantic/models.py`` 的清单决定, 不随配置变化.
+ */
+export type SemanticConfig = {
+    /**
+     * Auto Maintain
+     *
+     * 条目图片变化后立即增量索引; 打开时视觉模型常驻
+     */
+    auto_maintain?: boolean;
+};
+
+/**
+ * SemanticDiagnosticsResponse
+ *
+ * 用户手册的诊断数据: 运行时状态、路径、占用与索引统计; 不触发下载或加载.
+ */
+export type SemanticDiagnosticsResponse = {
+    /**
+     * Enabled
+     */
+    enabled: boolean;
+    /**
+     * Backend
+     */
+    backend?: string | null;
+    /**
+     * Current Model
+     */
+    current_model?: string | null;
+    /**
+     * Current Model Label
+     */
+    current_model_label?: string | null;
+    /**
+     * Backend Label
+     */
+    backend_label?: string | null;
+    /**
+     * Text Loaded
+     */
+    text_loaded?: boolean;
+    /**
+     * Vision Loaded
+     */
+    vision_loaded?: boolean;
+    /**
+     * Search Ready
+     */
+    search_ready?: boolean;
+    /**
+     * Index Ready
+     */
+    index_ready?: boolean;
+    /**
+     * Download Size
+     */
+    download_size?: number;
+    /**
+     * Vision Size
+     */
+    vision_size?: number;
+    /**
+     * Text Size
+     */
+    text_size?: number;
+    /**
+     * Model Path
+     */
+    model_path?: string;
+    /**
+     * Model Bytes
+     */
+    model_bytes?: number;
+    /**
+     * Embeddings Path
+     */
+    embeddings_path?: string;
+    /**
+     * Embeddings Bytes
+     */
+    embeddings_bytes?: number;
+    /**
+     * Indexed Metadata
+     */
+    indexed_metadata?: number;
+    /**
+     * Indexed At
+     */
+    indexed_at?: string | null;
+    /**
+     * Models
+     */
+    models?: {
+        [key: string]: SemanticModelCounts;
+    };
+};
+
+/**
+ * SemanticHitInfo
+ *
+ * 语义检索的命中图片: 与列表项按 id 对应, 不扩展 ``MetadataResponse`` 本身.
+ */
+export type SemanticHitInfo = {
+    /**
+     * Id
+     */
+    id: number;
+    kind: EmbeddingKind;
+    /**
+     * Resource Url
+     */
+    resource_url: string;
+    /**
+     * Similarity
+     */
+    similarity: number;
+};
+
+/**
+ * SemanticIndexResult
+ */
+export type SemanticIndexResult = {
+    /**
+     * Type
+     */
+    type?: 'semantic_index';
+    /**
+     * Scanned
+     */
+    scanned: number;
+    /**
+     * Indexed
+     */
+    indexed: number;
+    /**
+     * Skipped
+     */
+    skipped: number;
+    /**
+     * Missing
+     */
+    missing: number;
+    /**
+     * Failed
+     */
+    failed: number;
+};
+
+/**
+ * SemanticIndexSubmission
+ */
+export type SemanticIndexSubmission = {
+    /**
+     * Type
+     */
+    type: 'semantic_index';
+    /**
+     * Limit
+     *
+     * 单次最多处理的条目数; 空表示全库
+     */
+    limit?: number | null;
+    /**
+     * Force
+     *
+     * 忽略未变化的跳过判据, 全部重算
+     */
+    force?: boolean;
+    /**
+     * Kinds
+     */
+    kinds?: Array<EmbeddingKind>;
+};
+
+/**
+ * SemanticModelCounts
+ *
+ * 单个模型的向量条数, 按来源拆分.
+ */
+export type SemanticModelCounts = {
+    /**
+     * Count
+     */
+    count: number;
+    /**
+     * Covers
+     */
+    covers: number;
+    /**
+     * Stills
+     */
+    stills: number;
+};
+
+/**
+ * SemanticStatusResponse
+ *
+ * 语义检索的轻量状态: 页面据此决定入口与提示, 不读取存储统计.
+ */
+export type SemanticStatusResponse = {
+    /**
+     * Enabled
+     */
+    enabled?: boolean;
+    /**
+     * Available
+     */
+    available?: boolean;
+    /**
+     * Search Ready
+     */
+    search_ready?: boolean;
+    /**
+     * Has Embeddings
+     */
+    has_embeddings?: boolean;
+    /**
+     * Download Size
+     */
+    download_size?: number;
 };
 
 /**
@@ -4438,7 +4923,7 @@ export type TaskBatchSubmitRequest = {
     /**
      * Submissions
      */
-    submissions: Array<RefreshSubmission | OrganizeSubmission | ScanInvalidSubmission | DeleteSubmission | ScrapeSubmission | CleanupSubmission | UpscaleSubmission | R18ImportSubmission | ActorScrapeSubmission | RescrapeSubmission>;
+    submissions: Array<RefreshSubmission | OrganizeSubmission | ScanInvalidSubmission | DeleteSubmission | ScrapeSubmission | CleanupSubmission | UpscaleSubmission | R18ImportSubmission | ActorScrapeSubmission | ActorPushSubmission | RescrapeSubmission | SemanticIndexSubmission | SemanticBenchmarkSubmission>;
 };
 
 /**
@@ -4696,8 +5181,14 @@ export type TaskResponse = {
     } & R18ImportResult) | ({
         type: 'actor_scrape';
     } & ActorScrapeResult) | ({
+        type: 'actor_push';
+    } & ActorPushResult) | ({
         type: 'rescrape';
-    } & RescrapeResult) | null;
+    } & RescrapeResult) | ({
+        type: 'semantic_index';
+    } & SemanticIndexResult) | ({
+        type: 'semantic_benchmark';
+    } & SemanticBenchmarkResult) | null;
 };
 
 /**
@@ -4713,7 +5204,7 @@ export type TaskStatus = 'queued' | 'running' | 'done' | 'failed';
 /**
  * TaskType
  */
-export type TaskType = 'scrape' | 'organize' | 'refresh' | 'cleanup' | 'upscale' | 'r18_import' | 'actor_scrape' | 'rescrape' | 'scan_invalid' | 'delete';
+export type TaskType = 'scrape' | 'organize' | 'refresh' | 'cleanup' | 'upscale' | 'r18_import' | 'actor_scrape' | 'rescrape' | 'scan_invalid' | 'delete' | 'semantic_index' | 'semantic_benchmark' | 'actor_push';
 
 /**
  * TaskWorkerResponse
@@ -5762,6 +6253,18 @@ export type ListMetadataData = {
          */
         order?: SortOrder;
         /**
+         * Semantic Query
+         *
+         * 按画面描述排序; 提供时忽略 sort_by / order
+         */
+        semantic_query?: string | null;
+        /**
+         * Semantic Kind
+         *
+         * 参与语义排序的图片来源
+         */
+        semantic_kind?: 'all' | 'cover' | 'still';
+        /**
          * Actor Id
          *
          * Filter by actor facet id(s); AND
@@ -5948,6 +6451,31 @@ export type BatchMetadataUserTagsResponses = {
 
 export type BatchMetadataUserTagsResponse = BatchMetadataUserTagsResponses[keyof BatchMetadataUserTagsResponses];
 
+export type MergeMetadataEntriesData = {
+    body: MetadataMergeEntriesRequest;
+    path?: never;
+    query?: never;
+    url: '/api/metadata/merge-entries';
+};
+
+export type MergeMetadataEntriesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type MergeMetadataEntriesError = MergeMetadataEntriesErrors[keyof MergeMetadataEntriesErrors];
+
+export type MergeMetadataEntriesResponses = {
+    /**
+     * Successful Response
+     */
+    200: MetadataResponse;
+};
+
+export type MergeMetadataEntriesResponse = MergeMetadataEntriesResponses[keyof MergeMetadataEntriesResponses];
+
 export type DeleteMetadataData = {
     body?: never;
     path: {
@@ -6127,6 +6655,22 @@ export type MergeMetadataResponses = {
 };
 
 export type MergeMetadataResponse = MergeMetadataResponses[keyof MergeMetadataResponses];
+
+export type BrowserBackendsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/network/browser';
+};
+
+export type BrowserBackendsResponses = {
+    /**
+     * Successful Response
+     */
+    200: BrowserBackendReportResponse;
+};
+
+export type BrowserBackendsResponse = BrowserBackendsResponses[keyof BrowserBackendsResponses];
 
 export type CheckConnectivityData = {
     /**
@@ -8098,7 +8642,33 @@ export type SubmitTaskData = {
     /**
      * Req
      */
-    body: RefreshSubmission | OrganizeSubmission | ScanInvalidSubmission | DeleteSubmission | ScrapeSubmission | CleanupSubmission | UpscaleSubmission | R18ImportSubmission | ActorScrapeSubmission | RescrapeSubmission;
+    body: ({
+        type: 'refresh';
+    } & RefreshSubmission) | ({
+        type: 'organize';
+    } & OrganizeSubmission) | ({
+        type: 'scan_invalid';
+    } & ScanInvalidSubmission) | ({
+        type: 'delete';
+    } & DeleteSubmission) | ({
+        type: 'scrape';
+    } & ScrapeSubmission) | ({
+        type: 'cleanup';
+    } & CleanupSubmission) | ({
+        type: 'upscale';
+    } & UpscaleSubmission) | ({
+        type: 'r18_import';
+    } & R18ImportSubmission) | ({
+        type: 'actor_scrape';
+    } & ActorScrapeSubmission) | ({
+        type: 'actor_push';
+    } & ActorPushSubmission) | ({
+        type: 'rescrape';
+    } & RescrapeSubmission) | ({
+        type: 'semantic_index';
+    } & SemanticIndexSubmission) | ({
+        type: 'semantic_benchmark';
+    } & SemanticBenchmarkSubmission);
     path?: never;
     query?: never;
     url: '/api/tasks';
@@ -9053,3 +9623,51 @@ export type GetSavedQueryResultResponses = {
 };
 
 export type GetSavedQueryResultResponse = GetSavedQueryResultResponses[keyof GetSavedQueryResultResponses];
+
+export type SemanticStatusData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/semantic/status';
+};
+
+export type SemanticStatusResponses = {
+    /**
+     * Successful Response
+     */
+    200: SemanticStatusResponse;
+};
+
+export type SemanticStatusResponse2 = SemanticStatusResponses[keyof SemanticStatusResponses];
+
+export type SemanticDiagnosticsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/semantic/diagnostics';
+};
+
+export type SemanticDiagnosticsResponses = {
+    /**
+     * Successful Response
+     */
+    200: SemanticDiagnosticsResponse;
+};
+
+export type SemanticDiagnosticsResponse2 = SemanticDiagnosticsResponses[keyof SemanticDiagnosticsResponses];
+
+export type ReleaseSemanticData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/semantic/release';
+};
+
+export type ReleaseSemanticResponses = {
+    /**
+     * Successful Response
+     */
+    200: SemanticStatusResponse;
+};
+
+export type ReleaseSemanticResponse = ReleaseSemanticResponses[keyof ReleaseSemanticResponses];
