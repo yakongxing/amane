@@ -215,10 +215,22 @@ async def test_auto_source_uses_direct_first(mock_web, mock_browser):
 
 
 @pytest.mark.asyncio
-async def test_auto_source_switches_to_browser_after_challenge(mock_web, mock_browser):
+@pytest.mark.parametrize("status", [200, 403, 503])
+async def test_auto_source_switches_to_browser_after_challenge(mock_web, mock_browser, status: int):
     client = HttpClient(web=mock_web, browser=mock_browser)
     view = client.for_source("minnano", SiteConfig())
-    mock_web.get_text.return_value = "just a moment... cloudflare"
+    if status == 200:
+        mock_web.get_text.return_value = "just a moment... cloudflare"
+    else:
+        mock_web.get_text.side_effect = RequestError(
+            _URL,
+            RequestFailure(
+                kind=FailureKind.HTTP_STATUS,
+                message=f"HTTP {status}",
+                status=status,
+                body=b"<script>window._cf_chl_opt={};</script>",
+            ),
+        )
     mock_browser.get_page.return_value = ("<html>rendered</html>", None)
 
     first = await view.get_html("https://www.minnano-av.com/search_result.php")
@@ -227,6 +239,51 @@ async def test_auto_source_switches_to_browser_after_challenge(mock_web, mock_br
     assert (first, second) == ("<html>rendered</html>", "<html>rendered</html>")
     mock_web.get_text.assert_awaited_once()
     assert [call.kwargs["scope"] for call in mock_browser.get_page.await_args_list] == ["minnano", "minnano"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("mode", "available", "failure"),
+    [
+        (BrowserMode.AUTO, True, RequestFailure(kind=FailureKind.TIMEOUT, message="request timed out")),
+        (BrowserMode.AUTO, True, RequestFailure(kind=FailureKind.CURL, message="connection refused")),
+        *[
+            (
+                BrowserMode.AUTO,
+                True,
+                RequestFailure(kind=FailureKind.HTTP_STATUS, message=f"HTTP {status}", status=status, body=body),
+            )
+            for status, body in [(403, b"Forbidden"), (404, b"Not found"), (503, b"Unavailable")]
+        ],
+        *[
+            (
+                mode,
+                available,
+                RequestFailure(
+                    kind=FailureKind.HTTP_STATUS,
+                    message="HTTP 403",
+                    status=403,
+                    body=b"<script>window._cf_chl_opt={};</script>",
+                ),
+            )
+            for mode, available in [(BrowserMode.OFF, True), (BrowserMode.AUTO, False)]
+        ],
+    ],
+)
+async def test_direct_failure_preserved_without_browser_escalation(
+    mock_web, mock_browser, mode: BrowserMode, available: bool, failure: RequestFailure
+):
+    mock_browser.resolve.return_value = BrowserBackendName.BSK if available else None
+    client = HttpClient(web=mock_web, browser=mock_browser, browser_mode=mode)
+    original = RequestError(_URL, failure)
+    mock_web.get_text.side_effect = original
+
+    with pytest.raises(RequestError) as exc:
+        await client.get_html(_URL)
+
+    assert exc.value is original
+    assert (exc.value.failure, exc.value.message, exc.value.http_status) == (failure, failure.message, failure.status)
+    mock_browser.get_page.assert_not_awaited()
 
 
 @pytest.mark.asyncio

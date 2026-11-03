@@ -78,7 +78,7 @@ descriptor 声明来源能力、支持的内容类型、语言、访问 URL、`t
 
 ## 网络和运行时
 
-插件通过 `PluginContext` 得到共享 `HttpClient`、`WebClient` 和 `data_dir`. 使用共享客户端是契约的一部分: 插件请求必须遵守 Amane 的代理、重试、Host 限速和任务 HTTP 记录. HTML 用 `http_client.get_html` (拦截页抛 `SourceError`), JSON API 用 `get_json`. `data_dir` 是 `{cold.data_dir}/plugins/<plugin_id>`, 插件不允许写入该目录之外. 插件短 JSON 仍经由 `context.http_client`; 需要输出本机文件时声明 `file` 目标由主机打开, 插件不自行读盘.
+插件通过 `PluginContext` 得到共享 `HttpClient`、`WebClient` 和 `data_dir`. 请求遵守共享客户端的代理、重试、Host 限速和任务 HTTP 记录. HTML 使用 `http_client.get_html`: 按域名执行自适应浏览器策略, 挑战页经全局浏览器后端处理, 其余拦截抛 `SourceError`; 不使用内置来源的 `SiteConfig`. JSON 使用 `get_json`, 文件播放由主机读取 `file` 目标. `data_dir` 是 `{cold.data_dir}/plugins/<plugin_id>`, 插件不允许写入该目录之外.
 
 `fetch` 未命中返回 `None`; 网络 / 拦截 / 可分类业务失败抛 `SourceError` (含 `RequestError`), 由 `invoke_source` 记入与内置来源同一套 `SiteOutcomeRecord`. 不允许 `except RequestError: return None`, 也不允许裸 `except Exception` — 忽略异常会被记为 `no_usable_metadata`, 任务不失败.
 

@@ -91,7 +91,7 @@ Cloudflare managed challenge 只能执行 JS 越过, 因此受保护的来源由
 
 同一来源的连续请求复用同一个浏览器 context (solver 复用同名会话); 引擎惰性启动, camoufox 浏览器二进制在首次启动时下载, 空闲及进程退出 / 热重建时释放. 浏览器池只在 `network.browser` / `proxy` 变化时重建, 其余热重载保留已解决的 clearance; solver 经注入的 `WebClient` 出站, 地址来自 `network.browser.solver_url`, 不允许暴露到公网. FlareSolverr 的会话就是 solver 服务里的一张浏览器标签, 同一会话的并发页面请求会互相覆盖导航, 导致所有调用方读到同一份正文, 且以成功响应返回, 因此同一来源的并发渲染在 `SolverBackend` 里按会话排队. bsk 后端经 `bsk` CLI 驱动用户自装且已连接的浏览器, 要求 0.4.0 及以上: 0.4 起默认开启共享控制, 除空白标签页的首次导航外, 改动页面的命令都要带 `cooperate sync` 返回的一次性上下文. 因此每个请求各开一张标签页, 正文只走只读命令, 只有写 cookie 与点 Turnstile 取一次上下文; 取完即关, 关不掉时靠标签页数上限轮换会话. 会话只在实体消失或扩展断连时重建, 单个动作被拒直接上报; cookie 写入失败只冷却该组合, 不换会话也不永久放弃. 没有 cookie 与请求头注入, cookie 只能在目标域上用页面上下文写入; 扩展注入的样式节点在返回前剥掉. 浏览器侧只有事件式等待, `wait-for-navigation` 等的是之后的生命周期事件, 导航里等静默又会把提交与静默绑进同一个时限, 所以 bsk 不提供网络静默等待, 需要就绪时传 `wait_for`. 连接多个或扩展与 daemon 版本不匹配时探测即判不可用; 协议下限在宿主 Job 受限时探测不到, 要等前台 daemon 起来才生效 — 该场景由后台自己拉起 `bsk daemon start --foreground`, 进程随服务结束.
 
-改用浏览器的来源 (auto 切换后或 always) 实际入口不是 `base_url` 时必须覆盖 `check_connectivity` (如 minnano 探测 `search_result.php`), 否则首页可达会掩盖入口不可达. 插件来源没有浏览器入口, 始终使用 HTTP. `browser` 可选依赖不随 Docker 与桌面打包分发, 这两处只能用 `solver`, 或由用户自装 `bsk` 与浏览器扩展.
+改用浏览器的来源 (auto 切换后或 always) 实际入口不是 `base_url` 时必须覆盖 `check_connectivity`, 否则首页可达会掩盖入口不可达. 插件的浏览器策略见 [plugins.md](plugins.md#网络和运行时). `browser` 可选依赖不随 Docker 与桌面打包分发, 这两处使用 `solver`, 或由用户自装 `bsk` 与浏览器扩展.
 
 ## 外部 API 读模型
 

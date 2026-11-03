@@ -123,7 +123,12 @@ class HttpClient:
         scope = self._scope(url)
         if self._policy.should_render(scope):
             return await self._render(url, headers=headers, cookies=cookies, wait_for=wait_for)
-        text = await self.get_text(url, headers=headers, cookies=cookies, encoding=encoding)
+        try:
+            text = await self.get_text(url, headers=headers, cookies=cookies, encoding=encoding)
+        except RequestError as exc:
+            if self._policy.escalate(scope, exc.reason):
+                return await self._render(url, headers=headers, cookies=cookies, wait_for=wait_for)
+            raise
         reason = classify_block(text)
         if reason is None:
             if wait_for is not None:
