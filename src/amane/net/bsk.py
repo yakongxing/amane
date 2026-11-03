@@ -74,8 +74,8 @@ _DEAD_SESSION_CODES = frozenset({"not_found", "session_closed", "session_window_
 _DEAD_SESSION_MARKERS = ("could not establish connection", "receiving end does not exist", "extension disconnected")
 # 写 cookie 失败后冷却这么久再试: 瞬时失败不该让该来源在进程内一直带着旧页面.
 _COOKIE_RETRY_COOLDOWN_S = 120.0
-# 取完正文后关标签页的同步预算: 拿不到上下文就不关, 交给会话轮换.
-_CLOSE_SYNC_TIMEOUT_S = 5.0
+# 关闭前的观察须保留完整预算; 提前结束 CLI 会遗留扩展中的操作, 阻止后继请求执行.
+_CLOSE_SYNC_TIMEOUT_S = _SYNC_TIMEOUT_S + _COMMAND_SLACK_S
 # 扩展注入的样式 (antd cssinjs) 带 data-css-hash / data-rc-order, 页面自身样式不受影响.
 _INJECTED_STYLE_RE = re.compile(
     r"<style\b[^>]*\b(?:data-css-hash|data-rc-order)=[\"'][^\"']*[\"'][^>]*>.*?</style>",
