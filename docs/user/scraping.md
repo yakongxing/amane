@@ -118,7 +118,7 @@
 | dahlia | dahlia-av.jp | | | 单一制作商 |
 | giga | giga-web.jp | | | 单一制作商; 自动完成年龄确认, 同一时刻只处理一个请求; 不提供标签 |
 | kin8 | kin8tengoku.com | | | 单一制作商, 番号形如 `KIN8-1234`, 类型为欧美 |
-| fc2club | fc2club.top | | | 跳转镜像, 访问不稳定 |
+| fc2club | javten.com | | | FC2 索引, 受 Cloudflare 保护, 需要 [浏览器渲染](network.md#browser) |
 
 单一制作商站点对不属于它的番号同样会发出请求, 因此不在默认路由中; 需要时可以只加入相应类型的路由. 插件提供的来源同样可以加入类型路由, 见 [插件](plugins.md).
 
