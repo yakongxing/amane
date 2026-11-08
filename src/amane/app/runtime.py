@@ -44,6 +44,7 @@ from ..plugins.manager import PluginManager
 from ..plugins.packaging import install_plugin_path, install_plugin_zip, uninstall_plugin_tree
 from ..scheduler.worker import MAIN_LOOP_STOP_TIMEOUT, AsyncWorker
 from ..semantic import SemanticService
+from ..subtitles.factory import SubtitleFactory
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -235,6 +236,7 @@ class AppRuntime:
     plugin_manager: PluginManager | None = None
     playback_factory: PlaybackFactory | None = None
     playback_state: PlaybackState = field(default_factory=PlaybackState)
+    subtitle_factory: SubtitleFactory | None = None
     library_locks: LibraryTaskLocks = field(default_factory=LibraryTaskLocks)
     inventory_store: InventoryStore = field(default_factory=InventoryStore)
     semantic: SemanticService | None = None
@@ -373,6 +375,13 @@ class AppRuntime:
             # 插件集合变化 (安装 / 卸载 / 重载 / 启停): 已签发的 token 与探测缓存必须失效.
             self.playback_state.reset()
         self.playback_factory = current_playback
+        self.subtitle_factory = SubtitleFactory(
+            plugin_manager=self.plugin_manager,
+            plugin_configs=hot.plugins,
+            http_client=self.http_client,
+            web_client=self.web_client,
+            data_dir=self.config.cold.data_dir,
+        )
 
     async def apply_rebuild(self) -> None:
         """串行化 rebuild 与 worker 替换; 旧资源由退役流程在 worker 排空后释放."""

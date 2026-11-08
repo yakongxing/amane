@@ -17,6 +17,8 @@ from .api import (
     PlaybackPlugin,
     PlaybackProvider,
     PluginContext,
+    SubtitlePlugin,
+    SubtitleProvider,
 )
 from .models import (
     PluginConfig,
@@ -135,6 +137,15 @@ class PluginManager:
             isinstance(plugin, PlaybackPlugin)
             and descriptor is not None
             and descriptor.supports(SourceCapability.PLAYBACK)
+        )
+
+    def has_subtitle_plugin(self, plugin_id: str) -> bool:
+        plugin = self._plugins.get(plugin_id)
+        descriptor = self.descriptor(plugin_id)
+        return (
+            isinstance(plugin, SubtitlePlugin)
+            and descriptor is not None
+            and descriptor.supports(SourceCapability.SUBTITLE)
         )
 
     def origin(self, plugin_id: str) -> PluginOrigin | None:
@@ -290,6 +301,22 @@ class PluginManager:
         provider = plugin.build_playback(context, typed_config)
         if not isinstance(provider, PlaybackProvider):
             raise TypeError("plugin build_playback() must return a PlaybackProvider")
+        return provider
+
+    def build_subtitle_provider(
+        self,
+        plugin_id: str,
+        *,
+        context: PluginContext,
+        config: PluginConfig,
+    ) -> SubtitleProvider:
+        plugin = self._plugins.get(plugin_id)
+        if plugin is None or not isinstance(plugin, SubtitlePlugin):
+            raise KeyError(plugin_id)
+        typed_config = self.validate_plugin_config(plugin_id, config)
+        provider = plugin.build_subtitle(context, typed_config)
+        if not isinstance(provider, SubtitleProvider):
+            raise TypeError("plugin build_subtitle() must return a SubtitleProvider")
         return provider
 
     @staticmethod

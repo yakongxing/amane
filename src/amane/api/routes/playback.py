@@ -12,11 +12,9 @@ from ...playback.file_response import IndexedFileResponse
 from ...playback.hls import PLAYLIST_CACHE_CONTROL, is_hls_content_type
 from ...playback.href import playlist_href, stream_href, subtitle_href
 from ...playback.proxy import NOSNIFF
-from ...playback.query import playback_query
 from ...plugins.api import (
     PATH_SEGMENT_PATTERN,
     FilePlaybackTarget,
-    PlaybackQuery,
     UpstreamPlaybackTarget,
 )
 from ..deps import RepoDep, RuntimeDep
@@ -28,6 +26,7 @@ from ..models.playback import (
     PlaybackStreamListResponse,
     PlaybackSubtitleItem,
 )
+from ..support.playback_query import load_playback_query
 
 router = APIRouter(prefix="/playback", tags=["playback"])
 
@@ -40,30 +39,6 @@ def _source_href(source_id: str, metadata_id: int, key: str | None, content_type
     if is_hls_content_type(content_type):
         return playlist_href(source_id, metadata_id, key)
     return stream_href(source_id, metadata_id, key)
-
-
-async def _load_query(
-    repo: RepoDep,
-    metadata_id: int,
-    selected_key: str | None,
-) -> PlaybackQuery:
-    """装配查询快照.
-
-    ``selected_key`` 逐字交给插件: 主机不解释它, 也不核对它对应哪个文件 (那是插件的标识), 认不出来
-    的 key 由插件以自身原因拒绝.
-    """
-    metadata = await repo.get_metadata(metadata_id)
-    if metadata is None:
-        raise HTTPException(status_code=404, detail="影片不存在")
-    files = await repo.get_media_by_metadata_id(metadata_id)
-    library_paths: dict[int, str] = {}
-    for item in files:
-        if item.library_id in library_paths:
-            continue
-        library = await repo.get_library(item.library_id)
-        if library is not None:
-            library_paths[item.library_id] = library.path
-    return playback_query(metadata, files, selected_key=selected_key, library_paths=library_paths)
 
 
 def _stream_item(row: ListedSource, metadata_id: int) -> PlaybackStreamItem:
@@ -122,7 +97,7 @@ async def list_playback_streams(
     一小段时间, 来回切换不重复探测. 探测失败也是一行不可用记录, 前端按 ``detail`` 显示原因.
     """
     factory = await _require_factory(source_id, runtime)
-    query = await _load_query(repo, metadata_id, None)
+    query = await load_playback_query(repo, metadata_id, None)
     listed = await factory.list_streams(source_id, query)
     body = PlaybackStreamListResponse(items=[_stream_item(row, metadata_id) for row in listed])
     return JSONResponse(content=body.model_dump(mode="json"), headers={"Cache-Control": "no-store"})
@@ -304,7 +279,7 @@ async def external_playback(
 ) -> Response:
     """读取当前流的直连地址，供用户主动调用外部播放器。"""
     factory = await _require_factory(source_id, runtime)
-    query = await _load_query(repo, metadata_id, key)
+    query = await load_playback_query(repo, metadata_id, key)
     try:
         target = await factory.resolve(source_id, query)
     except LookupError:
@@ -382,7 +357,7 @@ async def _playlist(
     runtime: RuntimeDep,
 ) -> Response:
     factory = await _require_factory(source_id, runtime)
-    query = await _load_query(repo, metadata_id, selected_key)
+    query = await load_playback_query(repo, metadata_id, selected_key)
     try:
         target = await factory.resolve(source_id, query)
         if isinstance(target, UpstreamPlaybackTarget):
@@ -430,7 +405,7 @@ async def _subtitle(
     runtime: RuntimeDep,
 ) -> Response:
     factory = await _require_factory(source_id, runtime)
-    query = await _load_query(repo, metadata_id, selected_key)
+    query = await load_playback_query(repo, metadata_id, selected_key)
     try:
         result = await factory.load_subtitle(source_id, query, track_id)
     except LookupError:
@@ -455,7 +430,7 @@ async def _play(
     runtime: RuntimeDep,
 ) -> Response:
     factory = await _require_factory(source_id, runtime)
-    query = await _load_query(repo, metadata_id, selected_key)
+    query = await load_playback_query(repo, metadata_id, selected_key)
     try:
         target = await factory.resolve(source_id, query)
     except LookupError:

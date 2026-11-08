@@ -1,7 +1,7 @@
 """Host-side plugin contracts.
 
 Plugin authors should import these types from ``amane.plugin``, not this module.
-The first API version exposes film metadata sources and playback sources. A plugin
+The first API version exposes film metadata, playback, and subtitle sources. A plugin
 does not receive the repository, task worker, or FastAPI application.
 """
 
@@ -310,6 +310,58 @@ class PlaybackProvider(ABC):
         return None
 
 
+class SubtitleCandidate(BaseModel):
+    """``search`` 结果里的一份字幕.
+
+    ``id`` 由插件声明, 在同一来源与条目内唯一且稳定: 用户选中后主机原样交回 ``download``, 不解释
+    它的含义. ``name`` / ``language`` / ``format`` / ``detail`` 只用于展示, 主机不据此选择或排序;
+    ``detail`` 放上传者、下载次数之类的补充, 不写上游 URL 或凭据.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: PathSegment
+    name: str = Field(min_length=1)
+    language: str | None = None
+    format: str | None = None
+    detail: str | None = None
+
+
+class SubtitleFile(BaseModel):
+    """``download`` 取回的字幕正文, 由主机写到视频旁边.
+
+    插件只交出字节与格式, 不决定落盘位置与文件名: 主机按用户选中的视频拼出
+    ``<视频主名>.<language>.<format>``, ``language`` 缺省时省略这一段. 正文按 UTF-8 / UTF-16 BOM
+    / GB18030 依次识别并统一转成 UTF-8 写入, 识别不了的拒绝; 压缩包由插件自行解开.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    content: bytes = Field(min_length=1)
+    format: Literal["srt", "vtt", "ass", "ssa"]
+    #: 小写 BCP 47 语言标签, 进文件名; 播放源按这一段识别字幕语言.
+    language: str | None = Field(default=None, pattern=r"^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$")
+
+
+class SubtitleProvider(ABC):
+    """Runtime contract consumed by the subtitle factory.
+
+    ``query`` 与播放源收到的是同一份条目快照, ``selected_key`` 恒为 ``None``. 两个钩子都在事件循环
+    上被调用, 不允许执行阻塞 I/O. 上游 / 网络 / 可分类失败抛 ``SourceError``, ``detail`` 原样展示给
+    终端用户.
+    """
+
+    @abstractmethod
+    async def search(self, query: PlaybackQuery) -> tuple[SubtitleCandidate, ...]:
+        """列出这个条目可下载的字幕; 空元组表示没有找到."""
+        ...
+
+    @abstractmethod
+    async def download(self, query: PlaybackQuery, candidate_id: str) -> SubtitleFile | None:
+        """取回 ``search`` 列出的一份字幕; 认不出 ``candidate_id`` 时返回 ``None``."""
+        ...
+
+
 @dataclass(frozen=True, slots=True)
 class PluginContext:
     """Core services intentionally available to an in-process plugin.
@@ -375,4 +427,17 @@ class PlaybackPlugin(_ConfiguredPlugin):
         ...
 
 
-InstalledPlugin = FilmSourcePlugin | PlaybackPlugin
+class SubtitlePlugin(_ConfiguredPlugin):
+    """Base class implemented by third-party subtitle source plugins.
+
+    Same drop-in layout as film sources. ``build_subtitle`` is a distinct method
+    so a class may inherit several bases without colliding return types.
+    """
+
+    @abstractmethod
+    def build_subtitle(self, context: PluginContext, config: BaseModel) -> SubtitleProvider:
+        """Build a subtitle provider using core services and validated configuration."""
+        ...
+
+
+InstalledPlugin = FilmSourcePlugin | PlaybackPlugin | SubtitlePlugin

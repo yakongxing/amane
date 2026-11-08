@@ -21,6 +21,7 @@ from .resources import router as resources_router
 from .saved_queries import router as saved_queries_router
 from .schedules import router as schedules_router
 from .semantic import router as semantic_router
+from .subtitles import router as subtitles_router
 from .system import router as system_router
 from .tasks import router as tasks_router
 from .tools import router as tools_router
@@ -39,6 +40,7 @@ router.include_router(media_router)
 router.include_router(metadata_router)
 router.include_router(network_router)
 router.include_router(playback_router)
+router.include_router(subtitles_router)
 router.include_router(plugins_router)
 router.include_router(actors_router)
 router.include_router(facets_router)

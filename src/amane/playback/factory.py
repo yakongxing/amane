@@ -73,6 +73,10 @@ def _absolute_hls_uri(base_url: str, uri: str) -> str:
     return absolute
 
 
+def _probe_key(source_id: str, metadata_id: int) -> str:
+    return f"{source_id}\0{metadata_id}"
+
+
 @in_thread
 def _file_target_error(candidate: Path, indexed: tuple[str, ...]) -> str | None:
     """核对插件声明的文件目标, 返回给终端用户的中文原因; ``None`` 表示可以打开.
@@ -290,6 +294,11 @@ class PlaybackFactory:
             listed.append(self._listed(source_id, offer))
         return listed
 
+    def forget_probes(self, metadata_id: int) -> None:
+        """丢弃这个条目在各来源上的探测结果; 条目的文件旁新增字幕后调用, 下次切到来源时重新探测."""
+        suffix = _probe_key("", metadata_id)
+        self._caches.probe_hits.discard_where(lambda key: key.endswith(suffix))
+
     def source_options(self) -> list[SourceOption]:
         """列出已启用的播放源, 不调用插件.
 
@@ -307,7 +316,7 @@ class PlaybackFactory:
         没有人工预算: 这次探测由用户切到这个来源时触发, 允许它把该做的请求做完 (慢就慢在用户自己
         等待的那一次). 失败一律变成一行不可用记录, 由路由原样返回, 前端据此显示原因.
         """
-        cache_key = f"{source_id}\0{query.metadata_id}"
+        cache_key = _probe_key(source_id, query.metadata_id)
         hit = self._caches.probe_hits.get(cache_key)
         if isinstance(hit, list):
             return hit

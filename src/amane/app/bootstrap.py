@@ -31,6 +31,7 @@ from ..scheduler.feeds import FeedService
 from ..scheduler.service import WatcherService
 from ..scheduler.worker import AsyncWorker
 from ..semantic import SemanticService
+from ..subtitles.factory import SubtitleFactory
 from ..utils.random_logging import run_random_logging
 from .proxy_failure_cache import ProxyFailureCache
 from .runtime import AppRuntime, build_handlers, build_network_stack, build_r18_db
@@ -268,6 +269,13 @@ async def start_app(config: ConfigManager | None = None) -> AppSession:
             data_dir=cold.data_dir,
             proxy=hot.network.proxy,
             state=playback_state,
+        ),
+        subtitle_factory=SubtitleFactory(
+            plugin_manager=plugin_manager,
+            plugin_configs=hot.plugins,
+            http_client=http_client,
+            web_client=web_client,
+            data_dir=cold.data_dir,
         ),
         browser=stack.browser,
     )

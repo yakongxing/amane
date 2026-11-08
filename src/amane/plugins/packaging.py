@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
 
-from .api import FilmSourcePlugin, InstalledPlugin, PlaybackPlugin
+from .api import FilmSourcePlugin, InstalledPlugin, PlaybackPlugin, SubtitlePlugin
 from .models import PLUGIN_API_VERSION, SourceCapability, SourceDescriptor, validate_external_source_id
 
 PLUGIN_ENTRY = "plugin.py"
@@ -183,33 +183,35 @@ def uninstall_plugin_tree(data_dir: Path, plugin_id: str) -> None:
 
 
 def _instantiate_plugin(candidate: object) -> InstalledPlugin:
-    if not isinstance(candidate, type) or not (
-        issubclass(candidate, FilmSourcePlugin) or issubclass(candidate, PlaybackPlugin)
-    ):
+    if not isinstance(candidate, type) or not issubclass(candidate, FilmSourcePlugin | PlaybackPlugin | SubtitlePlugin):
         raise TypeError(
-            f"{PLUGIN_ENTRY} must define a FilmSourcePlugin or PlaybackPlugin subclass named {PLUGIN_CLASS_NAME}"
+            f"{PLUGIN_ENTRY} must define a FilmSourcePlugin, PlaybackPlugin or SubtitlePlugin subclass "
+            f"named {PLUGIN_CLASS_NAME}"
         )
     plugin = candidate()
-    if not isinstance(plugin, FilmSourcePlugin | PlaybackPlugin):
-        raise TypeError(f"{PLUGIN_CLASS_NAME} must be a FilmSourcePlugin or PlaybackPlugin")
+    if not isinstance(plugin, FilmSourcePlugin | PlaybackPlugin | SubtitlePlugin):
+        raise TypeError(f"{PLUGIN_CLASS_NAME} must be a FilmSourcePlugin, PlaybackPlugin or SubtitlePlugin")
     return plugin
 
 
+#: 能力与基类一一对应: 声明了能力就必须继承对应基类, 继承了基类就必须声明对应能力.
+_CAPABILITY_BASES: tuple[tuple[SourceCapability, type[InstalledPlugin], str], ...] = (
+    (SourceCapability.FILM_METADATA, FilmSourcePlugin, "FilmSourcePlugin"),
+    (SourceCapability.PLAYBACK, PlaybackPlugin, "PlaybackPlugin"),
+    (SourceCapability.SUBTITLE, SubtitlePlugin, "SubtitlePlugin"),
+)
+
+
 def _require_matching_capabilities(plugin: InstalledPlugin, descriptor: SourceDescriptor) -> None:
-    has_film = descriptor.supports(SourceCapability.FILM_METADATA)
-    has_playback = descriptor.supports(SourceCapability.PLAYBACK)
-    is_film = isinstance(plugin, FilmSourcePlugin)
-    is_playback = isinstance(plugin, PlaybackPlugin)
-    if not has_film and not has_playback:
-        raise ValueError("descriptor must advertise film_metadata or playback")
-    if has_film and not is_film:
-        raise ValueError("descriptor advertises film_metadata but Plugin is not a FilmSourcePlugin")
-    if has_playback and not is_playback:
-        raise ValueError("descriptor advertises playback but Plugin is not a PlaybackPlugin")
-    if is_film and not has_film:
-        raise ValueError("FilmSourcePlugin must advertise the film_metadata capability")
-    if is_playback and not has_playback:
-        raise ValueError("PlaybackPlugin must advertise the playback capability")
+    if not any(descriptor.supports(capability) for capability, _, _ in _CAPABILITY_BASES):
+        raise ValueError("descriptor must advertise film_metadata, playback or subtitle")
+    for capability, base, base_name in _CAPABILITY_BASES:
+        declared = descriptor.supports(capability)
+        inherited = isinstance(plugin, base)
+        if declared and not inherited:
+            raise ValueError(f"descriptor advertises {capability.value} but Plugin is not a {base_name}")
+        if inherited and not declared:
+            raise ValueError(f"{base_name} must advertise the {capability.value} capability")
 
 
 def _plugin_dir_from_extract(root: Path) -> Path:

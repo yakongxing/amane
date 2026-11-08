@@ -153,7 +153,7 @@ def test_plugin_manager_discovers_dropins(tmp_path: Path) -> None:
     assert Path(origin.path).name == "acme.fake"
     names = {failure.name for failure in manager.failures}
     assert names == {"acme.broken", "acme.old", "fakesource", "plugin.squat"}
-    assert any("FilmSourcePlugin or PlaybackPlugin" in failure.error for failure in manager.failures)
+    assert any("FilmSourcePlugin, PlaybackPlugin or SubtitlePlugin" in failure.error for failure in manager.failures)
     assert any("unsupported plugin API version" in failure.error for failure in manager.failures)
     assert any("namespace.local" in failure.error for failure in manager.failures)
     assert any("reserved" in failure.error for failure in manager.failures)
@@ -664,3 +664,72 @@ async def test_crawler_factory_skips_playback_only_plugin(tmp_path: Path) -> Non
         plugin_configs={"acme.play": PluginConfig()},
     )
     assert await factory.get("acme.play") is None
+
+
+def _subtitle_plugin_source(plugin_id: str, *, base: str, capabilities: str) -> str:
+    return f"""
+from pydantic import BaseModel
+
+from amane.plugin import (
+    PlaybackQuery,
+    PluginContext,
+    SourceCapability,
+    SourceDescriptor,
+    SubtitleCandidate,
+    SubtitleFile,
+    SubtitlePlugin,
+    SubtitleProvider,
+    PlaybackPlugin,
+)
+
+
+class _Provider(SubtitleProvider):
+    async def search(self, query: PlaybackQuery) -> tuple[SubtitleCandidate, ...]:
+        return ()
+
+    async def download(self, query: PlaybackQuery, candidate_id: str) -> SubtitleFile | None:
+        return None
+
+
+class Plugin({base}):
+    @classmethod
+    def descriptor(cls) -> SourceDescriptor:
+        return SourceDescriptor(id={plugin_id!r}, name="Subs", capabilities=frozenset({{{capabilities}}}))
+
+    def build_subtitle(self, context: PluginContext, config: BaseModel) -> SubtitleProvider:
+        return _Provider()
+
+    def build_playback(self, context: PluginContext, config: BaseModel):
+        raise NotImplementedError
+"""
+
+
+def test_discover_matches_subtitle_capability_with_base(tmp_path: Path) -> None:
+    """声明了 subtitle 就必须继承 SubtitlePlugin, 反之亦然; 只有两者一致的插件可用."""
+    cases = {
+        "acme.subs": ("SubtitlePlugin", "SourceCapability.SUBTITLE", None),
+        "acme.nobase": (
+            "PlaybackPlugin",
+            "SourceCapability.PLAYBACK, SourceCapability.SUBTITLE",
+            "not a SubtitlePlugin",
+        ),
+        "acme.nocap": ("SubtitlePlugin", "SourceCapability.PLAYBACK", "not a PlaybackPlugin"),
+        "acme.undeclared": (
+            "SubtitlePlugin, PlaybackPlugin",
+            "SourceCapability.PLAYBACK",
+            "must advertise the subtitle",
+        ),
+    }
+    for plugin_id, (base, capabilities, _) in cases.items():
+        write_plugin(tmp_path, plugin_id, body=_subtitle_plugin_source(plugin_id, base=base, capabilities=capabilities))
+
+    manager = PluginManager.discover(tmp_path)
+    assert manager.has_subtitle_plugin("acme.subs")
+    assert not manager.has_playback_plugin("acme.subs")
+    assert not manager.has_film_plugin("acme.subs")
+    errors = {failure.name: failure.error for failure in manager.failures}
+    for plugin_id, (_, _, message) in cases.items():
+        if message is None:
+            assert plugin_id not in errors
+        else:
+            assert message in errors[plugin_id], plugin_id

@@ -51,6 +51,10 @@ class _TtlMap[ValueT]:
         while len(self._items) > self._max_entries:
             self._items.popitem(last=False)
 
+    def discard_where(self, predicate: Callable[[str], bool]) -> None:
+        for key in [key for key in self._items if predicate(key)]:
+            del self._items[key]
+
     def is_blocked(self, key: str) -> bool:
         return self.get(key) is not None
 
