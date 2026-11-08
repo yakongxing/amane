@@ -50,12 +50,13 @@ class R18Repository:
 
     async def find_video_row(self, number: str) -> dict | None:
         # dvd_id 精确 (大小写不敏感) 或 content_id 落在零填充变体集合内.
-        # 多行命中时取 release_date 最新的一条.
+        # 同一番号常有 digital 与 mono 两行; digital 行的封面是横版 pl、剧照是 jp-N 大图, 而 mono 行
+        # 的 jacket_full 是竖版 ps、gallery_full 可能填着 medium 样品图, 因此先取 digital, 再取 release_date 最新.
         candidates = content_id_candidates(number)
         stmt = text(
             f"SELECT {_VIDEO_COLS} FROM derived_video "
             "WHERE upper(dvd_id) = upper(:number) OR content_id = ANY(:cids) "
-            "ORDER BY release_date DESC NULLS LAST LIMIT 1"
+            "ORDER BY (service_code = 'digital') DESC NULLS LAST, release_date DESC NULLS LAST LIMIT 1"
         )
         result = await self.session.execute(stmt, {"number": number, "cids": candidates})
         row = result.mappings().first()

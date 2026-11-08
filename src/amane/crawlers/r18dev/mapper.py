@@ -2,6 +2,7 @@
 
 指定 JP/EN 时仅取对应语言, 不允许回退; 未指定则日文优先再回退英文.
 有高清副本的分类 (mono 与 digital 视频) 产出双候选 (aws 高清 → pics 标准); gallery 只用 pics, 不生成 aws 候选.
+mono 行的 gallery_full 列可能填着 medium 样品图 (-N), 映射时统一升为 jp-N; gallery_thumb 回退不升级, 保留可用兜底.
 """
 
 import re
@@ -9,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from ...enums import ActorGender, Language
 from ..models import FilmActor, MediaMetadata
-from ..sites.dmm_cdn import PICS_CDN, image_candidates
+from ..sites.dmm_cdn import PICS_CDN, image_candidates, sample_full_url
 
 if TYPE_CHECKING:
     from .models import R18VideoDetail
@@ -73,7 +74,7 @@ def to_metadata(detail: R18VideoDetail, number: str, language: Language | None =
     thumb_urls = image_candidates(f"{PICS_CDN}/{jacket_path}.jpg") if jacket_path else []
 
     # 剧照: gallery_full 优先, 再回退 gallery_thumb.
-    extrafanart = _generate_gallery(v.gallery_full_first, v.gallery_full_last)
+    extrafanart = [sample_full_url(u) for u in _generate_gallery(v.gallery_full_first, v.gallery_full_last)]
     if not extrafanart:
         extrafanart = _generate_gallery(v.gallery_thumb_first, v.gallery_thumb_last)
 

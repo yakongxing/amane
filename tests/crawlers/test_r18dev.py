@@ -4,6 +4,8 @@
 因 r18dev 是无 HTTP 的 SQL 爬虫, 不使用 TOML 数据驱动, 直接测试映射层.
 """
 
+import pytest
+
 from amane.crawlers.r18dev.mapper import _generate_gallery, to_metadata
 from amane.crawlers.r18dev.models import R18Video, R18VideoDetail
 from amane.crawlers.r18dev.repository import content_id_candidates
@@ -93,6 +95,42 @@ class TestGenerateGallery:
             "https://pics.dmm.co.jp/mono/movie/test/test-2.jpg",
             "https://pics.dmm.co.jp/mono/movie/test/test-3.jpg",
         ]
+
+
+# --- 剧照选列 ---
+
+
+@pytest.mark.parametrize(
+    ("video", "expected"),
+    [
+        # mono 行的 gallery_full 填着 medium 样品图 (-N), 升为 jp-N.
+        (
+            R18Video(
+                content_id="snos452",
+                gallery_full_first="digital/video/snos00452/snos00452-1",
+                gallery_full_last="digital/video/snos00452/snos00452-2",
+                gallery_thumb_first="digital/video/snos00452/snos00452-1",
+                gallery_thumb_last="digital/video/snos00452/snos00452-2",
+            ),
+            [
+                "https://pics.dmm.co.jp/digital/video/snos00452/snos00452jp-1.jpg",
+                "https://pics.dmm.co.jp/digital/video/snos00452/snos00452jp-2.jpg",
+            ],
+        ),
+        # 只有 gallery_thumb 时原样回退, 不升级.
+        (
+            R18Video(
+                content_id="snos00452",
+                gallery_thumb_first="digital/video/snos00452/snos00452-1",
+                gallery_thumb_last="digital/video/snos00452/snos00452-1",
+            ),
+            ["https://pics.dmm.co.jp/digital/video/snos00452/snos00452-1.jpg"],
+        ),
+        (R18Video(content_id="snos00452"), []),
+    ],
+)
+def test_extrafanart_column_choice(video: R18Video, expected: list[str]) -> None:
+    assert to_metadata(R18VideoDetail(video=video), "SNOS-452").extrafanart == expected
 
 
 # --- content_id_candidates ---
