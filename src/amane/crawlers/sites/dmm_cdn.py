@@ -4,6 +4,8 @@
 (adult / amateur / japanese), aws 只接受省去该层的规范路径; 其余分类 (e-book 等) 没有副本.
 """
 
+import re
+
 PICS_CDN = "https://pics.dmm.co.jp"
 HIGH_RES_CDN = "https://awsimgsrc.dmm.co.jp/pics_dig"
 
@@ -12,6 +14,8 @@ _POSTER_SUFFIX = "ps.jpg"
 # aws 有副本的路径前缀; mono 单独处理, 因为它需要改写路径.
 _DIGITAL_HIGH_RES_PREFIXES = ("digital/video/", "digital/amateur/")
 _MONO_MOVIE_PREFIX = "mono/movie/"
+# 样品图编号: medium 是 js-N / -N, 大图是 jp-N.
+_SAMPLE_NUM_RE = re.compile(r"-(?P<num>\d+)\.jpg$")
 
 
 def _strip_transform(url: str) -> str:
@@ -40,6 +44,17 @@ def high_res_url(pics_url: str) -> str | None:
     if rel_path.startswith(_DIGITAL_HIGH_RES_PREFIXES):
         return f"{HIGH_RES_CDN}/{rel_path}"
     return None
+
+
+def sample_full_url(url: str) -> str:
+    """pics 样品图地址 (js-N / -N / jp-N) → 同 CDN 的 jp-N 大图; 非 pics 或不带编号的地址原样返回."""
+    if not url.startswith(f"{PICS_CDN}/"):
+        return url
+    match = _SAMPLE_NUM_RE.search(url)
+    if match is None:
+        return url
+    stem = url[: match.start()].removesuffix("js").removesuffix("jp")
+    return f"{stem}jp-{match.group('num')}.jpg"
 
 
 def image_candidates(image_url: str) -> list[str]:

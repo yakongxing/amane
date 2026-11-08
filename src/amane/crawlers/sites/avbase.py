@@ -19,7 +19,7 @@ from amane.enums import ActorGender, SiteName
 from ..base import Crawler, CrawlerProfile
 from ..models import FetchOptions, FilmActor, MediaMetadata, SearchQuery
 from ..parsing import NumberMatch, next_data_props, number_match, number_variants
-from .dmm_cdn import PICS_CDN, image_candidates, poster_candidates
+from .dmm_cdn import image_candidates, poster_candidates, sample_full_url
 
 # JS Date.toString(): "Thu Feb 18 2021 09:00:00 GMT+0900 (Japan Standard Time)"; 星期前缀可选.
 _JS_DATE_RE = re.compile(r"^(?:[A-Za-z]{3} )?(?P<mon>[A-Za-z]{3}) (?P<day>\d{1,2}) (?P<year>\d{4})\b")
@@ -27,8 +27,6 @@ _JS_DATE_RE = re.compile(r"^(?:[A-Za-z]{3} )?(?P<mon>[A-Za-z]{3}) (?P<day>\d{1,2
 _CLOCK_RE = re.compile(r"^(?P<h>\d+):(?P<min>\d{2}):(?P<sec>\d{2})$")
 # 无分隔符番号插入短横线: 字母结尾 + 数字尾段 (SSIS497 → SSIS-497); 含 "_" 的日期号不匹配.
 _DASHABLE_RE = re.compile(r"^(?P<head>.*[A-Za-z])(?P<digits>\d+)$")
-# DMM 样品图编号: medium 是 js-N / -N, 高清副本是 jp-N.
-_SAMPLE_NUM_RE = re.compile(r"-(?P<num>\d+)\.jpg$")
 _MONTHS: dict[str, int] = {
     "jan": 1,
     "feb": 2,
@@ -230,21 +228,10 @@ def _sample_urls(products: list[dict[str, Any]], *, preferred: dict[str, Any]) -
                 continue
             url = _text(item.get("l")) or _text(item.get("s"))
             if url:
-                urls.append(_sample_url(url))
+                urls.append(sample_full_url(url))
         if urls:
             return list(dict.fromkeys(urls))
     return []
-
-
-def _sample_url(url: str) -> str:
-    """DMM 商品把 medium 样品图放在 l 字段 (js-N / -N); 同 CDN 的高清副本是 jp-N, 其它 CDN 原样."""
-    if not url.startswith(f"{PICS_CDN}/"):
-        return url
-    match = _SAMPLE_NUM_RE.search(url)
-    if match is None:
-        return url
-    stem = url[: match.start()].removesuffix("js").removesuffix("jp")
-    return f"{stem}jp-{match.group('num')}.jpg"
 
 
 def _build_actors(casts: object) -> list[FilmActor]:

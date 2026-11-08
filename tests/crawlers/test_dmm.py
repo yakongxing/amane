@@ -7,7 +7,7 @@ import pytest
 from parsel import Selector
 
 from amane.crawlers.sites.dmm import DmmCrawler, _extrafanart_urls
-from amane.crawlers.sites.dmm_cdn import image_candidates, poster_candidates
+from amane.crawlers.sites.dmm_cdn import image_candidates, poster_candidates, sample_full_url
 
 
 @pytest.mark.parametrize(
@@ -112,6 +112,39 @@ def test_image_candidates(image_url: str, expected: list[str]) -> None:
 )
 def test_poster_candidates(cover_url: str, expected: list[str]) -> None:
     assert poster_candidates(cover_url) == expected
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        (
+            "https://pics.dmm.co.jp/digital/video/snos00452/snos00452-1.jpg",
+            "https://pics.dmm.co.jp/digital/video/snos00452/snos00452jp-1.jpg",
+        ),
+        (
+            "https://pics.dmm.co.jp/digital/video/ssis00497/ssis00497js-12.jpg",
+            "https://pics.dmm.co.jp/digital/video/ssis00497/ssis00497jp-12.jpg",
+        ),
+        # 已是大图时结果不变.
+        (
+            "https://pics.dmm.co.jp/digital/video/ssis00497/ssis00497jp-3.jpg",
+            "https://pics.dmm.co.jp/digital/video/ssis00497/ssis00497jp-3.jpg",
+        ),
+        # 不带编号 (封面) / 非 pics 域名 / 空串原样返回.
+        (
+            "https://pics.dmm.co.jp/digital/video/ssis00497/ssis00497pl.jpg",
+            "https://pics.dmm.co.jp/digital/video/ssis00497/ssis00497pl.jpg",
+        ),
+        ("https://c0.jdbstatic.com/samples/ve/veAadG_l_1.jpg", "https://c0.jdbstatic.com/samples/ve/veAadG_l_1.jpg"),
+        (
+            "https://awsimgsrc.dmm.co.jp/pics_dig/digital/video/ssis00497/ssis00497-1.jpg",
+            "https://awsimgsrc.dmm.co.jp/pics_dig/digital/video/ssis00497/ssis00497-1.jpg",
+        ),
+        ("", ""),
+    ],
+)
+def test_sample_full_url(url: str, expected: str) -> None:
+    assert sample_full_url(url) == expected
 
 
 @pytest.mark.parametrize(
