@@ -1,11 +1,11 @@
 # 来源插件
 
-> 本文记录影片刮削来源与播放源插件的边界、发现顺序、配置契约与兼容性要求. 通用爬虫实现见 [crawlers.md](crawlers.md), 配置进程内 rebuild 见 [config.md](config.md).
+> 本文记录影片刮削来源、播放源与字幕源插件的边界、发现顺序、配置契约与兼容性要求. 通用爬虫实现见 [crawlers.md](crawlers.md), 配置进程内 rebuild 见 [config.md](config.md).
 > 播放钩子与播放目标的逐字段契约 (probe / resolve / subtitle 的返回值, `key` 形状, `cache_ttl` 上限, HLS 定位) 写在 `src/amane/plugin/api.py` 的 docstring 里.
 
 ## 插件边界
 
-插件 API v1 开放**影片元数据来源**与**播放源**. 二者共用 `{cold.data_dir}/plugins/sources/<id>/` 与 HotSettings `plugins.<id>` 信封; 调用路径、输入输出与 Factory 分离. 插件不直接访问 Repository、任务 Worker、FastAPI 或前端运行时.
+插件 API v1 开放**影片元数据来源**、**播放源**与**字幕源**. 三者共用 `{cold.data_dir}/plugins/sources/<id>/` 与 HotSettings `plugins.<id>` 信封; 调用路径、输入输出与 Factory 分离. 插件不直接访问 Repository、任务 Worker、FastAPI 或前端运行时.
 
 影片来源通过一个窄接口接收 `SearchQuery` 并返回 `MediaMetadata`, 随后进入现有聚合 DAG. `MediaMetadata.actors` 为 `list[FilmActor]`, 也接受 `list[str]` (性别 `unknown`), API 版本号不因此递增; 性别契约见 [crawlers.md](crawlers.md).
 
@@ -17,7 +17,7 @@
 
 插件作者只从 `amane.plugin` 导入类型与契约; 主机实现在 `amane.plugins.*` (发现、落盘安装、Factory), 内部代码不允许导入 `amane.plugin`. 这是导入路径上的分层, 不是运行时沙箱.
 
-第三方来源是 `{cold.data_dir}/plugins/sources/<id>/` 下一棵源码树: 目录名就是来源 ID, 其中必须有 `plugin.py` 并导出名为 `Plugin` 的类 (`FilmSourcePlugin`、`PlaybackPlugin`, 或同时继承二者), 同目录其它 `.py` 可作为包内相对导入. 启动、安装、卸载与显式重新扫描时按目录名排序加载; 单个插件加载 / descriptor 校验 / API 版本不兼容只使该插件不可用, 不阻断其它来源, 失败写入日志并出现在 `GET /api/plugins` 的 `failures` 里.
+第三方来源是 `{cold.data_dir}/plugins/sources/<id>/` 下一棵源码树: 目录名就是来源 ID, 其中必须有 `plugin.py` 并导出名为 `Plugin` 的类 (`FilmSourcePlugin`、`PlaybackPlugin`、`SubtitlePlugin` 之一或多个); 声明的能力与继承的基类必须一一对应 (`packaging.py::_require_matching_capabilities`), 同目录其它 `.py` 可作为包内相对导入. 启动、安装、卸载与显式重新扫描时按目录名排序加载; 单个插件加载 / descriptor 校验 / API 版本不兼容只使该插件不可用, 不阻断其它来源, 失败写入日志并出现在 `GET /api/plugins` 的 `failures` 里.
 
 仅声明播放能力的插件必须显式写出 `playback`, 否则能力集合缺省为影片元数据, 纯播放插件在发现期失败. `PLUGIN_API_VERSION` 仍为 `"1"`.
 
@@ -75,6 +75,12 @@ descriptor 声明来源能力、支持的内容类型、语言、访问 URL、`t
 **token 表与探测缓存跨 rebuild 存活** (所有权在 `AppRuntime`), 只在插件集合变化 (安装 / 卸载 / 重载 / 启停) 时清空 — 播放中修改任意热配置不得让在播 HLS 会话的分片失效; **解析结果缓存每次 rebuild 都清空**. 探测失败与打开失败使用独立的进程内 TTL, 不复用图片代理负缓存, 也不把码流写入 `ResourceStore`.
 
 `SourceError.detail` 会原样进入 502 响应体并展示给终端用户, 不允许在其中写入上游 URL、密钥或签名参数. 路由层的 `source_id` 只限制长度, 第三方 ID 的命名空间规则只在 descriptor 加载期执行.
+
+## 字幕源
+
+字幕源由 `subtitles/factory.py::SubtitleFactory` 构造, 随热配置 rebuild 整个替换; 不进入 `CrawlerFactory` 与 `PlaybackFactory`. 插件收到与播放源同一份条目快照 (`api/support/playback_query.py`), 只负责 `search` 与 `download`, **落盘位置由主机决定**: 写到用户所选已入库视频的同目录, 文件名 `<视频主名>.<语言>.<格式>`, 正文统一转成 UTF-8 (`subtitles/placement.py`). 插件仍不允许写 `data_dir` 之外的路径. 同名文件存在且未要求覆盖时返回 409.
+
+落盘后路由刷新该文件的 `has_external_subtitle`, 并经 `PlaybackFactory.forget_probes` 丢弃这个条目的探测缓存; 播放器能否加载新字幕取决于播放源插件是否列出同目录字幕, 主机的 `subtitle` 钩子仍不读取本机文件.
 
 ## 网络和运行时
 

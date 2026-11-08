@@ -29,6 +29,7 @@ HTTP 宿主与 DI 在 `app.py` / `deps.py` / `middleware.py` / `spa.py`; `routes
 | `plugins` | `/plugins` | 插件目录、安装 / 卸载 / 热扫描、配置 schema 与启用状态 |
 | `network` | `/network` | 刮削来源连通性探测 / 浏览器后端可用性 |
 | `playback` | `/playback` | 播放源列表与码流 |
+| `subtitles` | `/subtitles` | 字幕源列表、搜索与落盘 (契约见 [plugins.md](plugins.md)「字幕源」) |
 | `files` | `/files` | 目录浏览; 契约见下 |
 | `resources` | `/resources` | 本地资源 + `GET /proxy` |
 | `semantic` | `/semantic` | 语义检索的轻量状态 (`GET /status`)、手册诊断 (`GET /diagnostics`) 与手动释放内存索引; 查询并入 `/metadata` 的 `semantic_query`. 索引走 `SEMANTIC_INDEX` 任务, 性能测试走 `SEMANTIC_BENCHMARK` 任务 |
