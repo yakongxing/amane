@@ -74,6 +74,7 @@ import { proxyImageUrl } from "@/lib/utils";
 import { ProxyImage } from "@/components/media/proxy-image";
 import { CommentSection } from "@/components/media/comment-section";
 import { PlaybackPanel } from "@/components/media/playback-panel";
+import { SubtitleDownloadButton } from "@/components/media/subtitle-download-button";
 import { LazyPlaybackPlayer } from "@/components/media/playback-player-lazy";
 import type { SeekRequest } from "@/components/media/playback-player";
 
@@ -894,9 +895,10 @@ function TitleDetailPage() {
       {/* 宽屏下并排, 窄屏落回上下叠放; 各自保持自然高度, 拉平会把空白挪进较短的一栏. */}
       <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md" style={{ alignItems: "start" }}>
         <Card withBorder radius="md" p="md">
-          <Title order={5} mb="sm">
-            {t("detail.connections")}
-          </Title>
+          <Group justify="space-between" align="center" mb="sm">
+            <Title order={5}>{t("detail.connections")}</Title>
+            <SubtitleDownloadButton metadataId={id} number={item.number} files={data.files} />
+          </Group>
           {data.files.length === 0 ? (
             <Text size="sm" c="dimmed">
               {t("detail.noFiles")}

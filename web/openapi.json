@@ -2433,6 +2433,144 @@
         }
       }
     },
+    "/api/subtitles/sources": {
+      "get": {
+        "tags": [
+          "subtitles"
+        ],
+        "summary": "List Subtitle Sources",
+        "description": "列出已启用的字幕源; 不调用插件.",
+        "operationId": "list_subtitle_sources",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubtitleSourceListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitles/{source_id}/{metadata_id}/candidates": {
+      "get": {
+        "tags": [
+          "subtitles"
+        ],
+        "summary": "Search Subtitles",
+        "description": "让一个字幕源按条目快照搜索; 插件失败以 502 与插件给出的原因返回.",
+        "operationId": "search_subtitles",
+        "parameters": [
+          {
+            "name": "source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Source Id"
+            }
+          },
+          {
+            "name": "metadata_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "title": "Metadata Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubtitleCandidateListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitles/{source_id}/{metadata_id}/download": {
+      "post": {
+        "tags": [
+          "subtitles"
+        ],
+        "summary": "Download Subtitle",
+        "description": "取回一份字幕并写到所选视频旁边.\n\n同名字幕已存在且未要求覆盖时返回 409, 已有文件不受影响. 落盘后刷新该文件的中字标记, 并丢弃\n这个条目的播放探测缓存, 让播放源下次探测时列出新字幕.",
+        "operationId": "download_subtitle",
+        "parameters": [
+          {
+            "name": "source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Source Id"
+            }
+          },
+          {
+            "name": "metadata_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "title": "Metadata Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubtitleDownloadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubtitleDownloadResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/plugins": {
       "get": {
         "tags": [
@@ -15742,6 +15880,149 @@
           "waifu-photo-2x"
         ],
         "title": "SrPreset"
+      },
+      "SubtitleCandidateItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Format"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "SubtitleCandidateItem"
+      },
+      "SubtitleCandidateListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SubtitleCandidateItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SubtitleCandidateListResponse"
+      },
+      "SubtitleDownloadRequest": {
+        "properties": {
+          "candidate_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9._-]{1,64}$",
+            "title": "Candidate Id"
+          },
+          "media_id": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Media Id"
+          },
+          "overwrite": {
+            "type": "boolean",
+            "title": "Overwrite",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "candidate_id",
+          "media_id"
+        ],
+        "title": "SubtitleDownloadRequest",
+        "description": "把一份字幕写到条目某个已入库视频的旁边."
+      },
+      "SubtitleDownloadResponse": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "title": "SubtitleDownloadResponse"
+      },
+      "SubtitleSourceListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SubtitleSourceOption"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SubtitleSourceListResponse"
+      },
+      "SubtitleSourceOption": {
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source_id",
+          "name"
+        ],
+        "title": "SubtitleSourceOption",
+        "description": "一个已启用的字幕源. 只有名字: 打开下载对话框时才去搜索."
       },
       "TaskBatchAction": {
         "type": "string",

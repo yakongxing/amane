@@ -176,7 +176,18 @@
     "externalDownload": "下载播放列表",
     "externalCopy": "复制播放地址",
     "externalCopyFailed": "无法复制，请使用下载播放列表。",
-    "externalCopied": "已复制播放地址"
+    "externalCopied": "已复制播放地址",
+    "subtitleDownload": "下载字幕",
+    "subtitleDownloadTitle": "下载字幕 — {{number}}",
+    "subtitleSourceLabel": "字幕源",
+    "subtitleTargetLabel": "保存到视频旁边",
+    "subtitleSearchFailed": "字幕搜索失败",
+    "subtitleNoResults": "没有找到字幕",
+    "subtitleDownloadFailed": "字幕下载失败",
+    "subtitleExists": "视频旁边已有同名字幕。",
+    "subtitleOverwrite": "覆盖",
+    "subtitleSaved": "字幕已保存: {{path}}",
+    "subtitleFetch": "下载"
   },
   "browse": {
     "title": "分类浏览",

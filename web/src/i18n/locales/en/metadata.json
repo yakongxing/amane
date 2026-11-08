@@ -179,7 +179,18 @@
     "externalDownload": "Download playlist",
     "externalCopy": "Copy playback URL",
     "externalCopyFailed": "Could not copy. Download the playlist instead.",
-    "externalCopied": "Playback URL copied"
+    "externalCopied": "Playback URL copied",
+    "subtitleDownload": "Download subtitles",
+    "subtitleDownloadTitle": "Download subtitles — {{number}}",
+    "subtitleSourceLabel": "Subtitle source",
+    "subtitleTargetLabel": "Save next to video",
+    "subtitleSearchFailed": "Subtitle search failed",
+    "subtitleNoResults": "No subtitles found",
+    "subtitleDownloadFailed": "Subtitle download failed",
+    "subtitleExists": "A subtitle with the same name already exists next to the video.",
+    "subtitleOverwrite": "Overwrite",
+    "subtitleSaved": "Subtitle saved: {{path}}",
+    "subtitleFetch": "Download"
   },
   "browse": {
     "title": "Browse",

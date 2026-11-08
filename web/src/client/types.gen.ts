@@ -4865,6 +4865,98 @@ export type SrConfig = {
 export type SrPreset = 'realesr-photo-4x' | 'waifu-photo-2x';
 
 /**
+ * SubtitleCandidateItem
+ */
+export type SubtitleCandidateItem = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Language
+     */
+    language?: string | null;
+    /**
+     * Format
+     */
+    format?: string | null;
+    /**
+     * Detail
+     */
+    detail?: string | null;
+};
+
+/**
+ * SubtitleCandidateListResponse
+ */
+export type SubtitleCandidateListResponse = {
+    /**
+     * Items
+     */
+    items?: Array<SubtitleCandidateItem>;
+};
+
+/**
+ * SubtitleDownloadRequest
+ *
+ * 把一份字幕写到条目某个已入库视频的旁边.
+ */
+export type SubtitleDownloadRequest = {
+    /**
+     * Candidate Id
+     */
+    candidate_id: string;
+    /**
+     * Media Id
+     */
+    media_id: number;
+    /**
+     * Overwrite
+     */
+    overwrite?: boolean;
+};
+
+/**
+ * SubtitleDownloadResponse
+ */
+export type SubtitleDownloadResponse = {
+    /**
+     * Path
+     */
+    path: string;
+};
+
+/**
+ * SubtitleSourceListResponse
+ */
+export type SubtitleSourceListResponse = {
+    /**
+     * Items
+     */
+    items?: Array<SubtitleSourceOption>;
+};
+
+/**
+ * SubtitleSourceOption
+ *
+ * 一个已启用的字幕源. 只有名字: 打开下载对话框时才去搜索.
+ */
+export type SubtitleSourceOption = {
+    /**
+     * Source Id
+     */
+    source_id: string;
+    /**
+     * Name
+     */
+    name: string;
+};
+
+/**
  * TaskBatchAction
  */
 export type TaskBatchAction = 'cancel' | 'delete' | 'retry';
@@ -7075,6 +7167,90 @@ export type ExternalPlaybackResponses = {
 };
 
 export type ExternalPlaybackResponse2 = ExternalPlaybackResponses[keyof ExternalPlaybackResponses];
+
+export type ListSubtitleSourcesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/subtitles/sources';
+};
+
+export type ListSubtitleSourcesResponses = {
+    /**
+     * Successful Response
+     */
+    200: SubtitleSourceListResponse;
+};
+
+export type ListSubtitleSourcesResponse = ListSubtitleSourcesResponses[keyof ListSubtitleSourcesResponses];
+
+export type SearchSubtitlesData = {
+    body?: never;
+    path: {
+        /**
+         * Source Id
+         */
+        source_id: string;
+        /**
+         * Metadata Id
+         */
+        metadata_id: number;
+    };
+    query?: never;
+    url: '/api/subtitles/{source_id}/{metadata_id}/candidates';
+};
+
+export type SearchSubtitlesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SearchSubtitlesError = SearchSubtitlesErrors[keyof SearchSubtitlesErrors];
+
+export type SearchSubtitlesResponses = {
+    /**
+     * Successful Response
+     */
+    200: SubtitleCandidateListResponse;
+};
+
+export type SearchSubtitlesResponse = SearchSubtitlesResponses[keyof SearchSubtitlesResponses];
+
+export type DownloadSubtitleData = {
+    body: SubtitleDownloadRequest;
+    path: {
+        /**
+         * Source Id
+         */
+        source_id: string;
+        /**
+         * Metadata Id
+         */
+        metadata_id: number;
+    };
+    query?: never;
+    url: '/api/subtitles/{source_id}/{metadata_id}/download';
+};
+
+export type DownloadSubtitleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DownloadSubtitleError = DownloadSubtitleErrors[keyof DownloadSubtitleErrors];
+
+export type DownloadSubtitleResponses = {
+    /**
+     * Successful Response
+     */
+    200: SubtitleDownloadResponse;
+};
+
+export type DownloadSubtitleResponse = DownloadSubtitleResponses[keyof DownloadSubtitleResponses];
 
 export type ListPluginsData = {
     body?: never;

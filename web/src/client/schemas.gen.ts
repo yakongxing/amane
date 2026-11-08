@@ -9193,6 +9193,155 @@ export const SrPresetSchema = {
     title: 'SrPreset'
 } as const;
 
+export const SubtitleCandidateItemSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            title: 'Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        language: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Language'
+        },
+        format: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Format'
+        },
+        detail: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Detail'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: [
+        'id',
+        'name'
+    ],
+    title: 'SubtitleCandidateItem'
+} as const;
+
+export const SubtitleCandidateListResponseSchema = {
+    properties: {
+        items: {
+            items: {
+                $ref: '#/components/schemas/SubtitleCandidateItem'
+            },
+            type: 'array',
+            title: 'Items'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    title: 'SubtitleCandidateListResponse'
+} as const;
+
+export const SubtitleDownloadRequestSchema = {
+    properties: {
+        candidate_id: {
+            type: 'string',
+            maxLength: 64,
+            minLength: 1,
+            pattern: '^[a-zA-Z0-9._-]{1,64}$',
+            title: 'Candidate Id'
+        },
+        media_id: {
+            type: 'integer',
+            minimum: 1,
+            title: 'Media Id'
+        },
+        overwrite: {
+            type: 'boolean',
+            title: 'Overwrite',
+            default: false
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: [
+        'candidate_id',
+        'media_id'
+    ],
+    title: 'SubtitleDownloadRequest',
+    description: '把一份字幕写到条目某个已入库视频的旁边.'
+} as const;
+
+export const SubtitleDownloadResponseSchema = {
+    properties: {
+        path: {
+            type: 'string',
+            title: 'Path'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: [
+        'path'
+    ],
+    title: 'SubtitleDownloadResponse'
+} as const;
+
+export const SubtitleSourceListResponseSchema = {
+    properties: {
+        items: {
+            items: {
+                $ref: '#/components/schemas/SubtitleSourceOption'
+            },
+            type: 'array',
+            title: 'Items'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    title: 'SubtitleSourceListResponse'
+} as const;
+
+export const SubtitleSourceOptionSchema = {
+    properties: {
+        source_id: {
+            type: 'string',
+            title: 'Source Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: [
+        'source_id',
+        'name'
+    ],
+    title: 'SubtitleSourceOption',
+    description: '一个已启用的字幕源. 只有名字: 打开下载对话框时才去搜索.'
+} as const;
+
 export const TaskBatchActionSchema = {
     type: 'string',
     enum: [
