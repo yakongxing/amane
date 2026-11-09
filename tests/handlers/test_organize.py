@@ -518,7 +518,7 @@ async def test_organize_writes_subtitle_tag_for_external_subtitle(
     updated = await repo.get_media_file(source.id)
     assert updated is not None and updated.path == str(dest)
     assert [call.args[1].has_subtitle for call in watermark.call_args_list] == [True, True]
-    for image in (paths_dir / "thumb.jpg", paths_dir / "poster.jpg"):
+    for image in (paths_dir / "MIDV-123-C-thumb.jpg", paths_dir / "MIDV-123-C-poster.jpg"):
         with Image.open(image) as painted:
             pixel = painted.convert("RGB").getpixel((20, 20))
         assert isinstance(pixel, tuple)
@@ -559,11 +559,76 @@ async def test_organize_stamps_uncensored_from_entry_type(
     assert result.result is not None
     assert (result.result.organized, result.result.failed) == (1, 0)
 
-    for image in (lib_root / "thumb.jpg", lib_root / "poster.jpg"):
+    for image in (lib_root / f"{number}-thumb.jpg", lib_root / f"{number}-poster.jpg"):
         with Image.open(image) as painted:
             pixel = painted.convert("RGB").getpixel((20, 20))
         assert isinstance(pixel, tuple)
         assert (pixel[0] > 180 and pixel[2] < 80) is stamped
+
+
+@pytest.mark.asyncio(loop_scope="function")
+async def test_organize_versions_in_one_dir_keep_own_cover_stamps(
+    repo: Repository, resource_store: ResourceStore, tmp_path: Path
+) -> None:
+    """缺省模板下同目录的两个版本各有 NFO 与封面 / 海报, 角标按各自的文件标记; 背景图与剧照共用一份."""
+    lib_root = tmp_path / "lib"
+    src_dir = lib_root / "incoming"
+    src_dir.mkdir(parents=True)
+    # 先整理带中字的版本: 若封面共用一个文件, 后整理的无字幕版本会把角标盖掉.
+    sources = [src_dir / "MIDV-123-C.mp4", src_dir / "MIDV-123.mp4"]
+    for src in sources:
+        src.write_bytes(b"video")
+
+    lib = await repo.create_library(name="t", path=str(lib_root))
+    assert lib.id is not None
+    meta = await repo.upsert_metadata(
+        number="MIDV-123",
+        studio="Studio",
+        thumb_urls=["https://s/t.jpg"],
+        extrafanart_urls={"dmm": ["https://s/e1.jpg", "https://s/e2.jpg"]},
+    )
+    assert meta.id is not None
+    for src in sources:
+        await repo.create_media_file(
+            lib.id, path=str(src), number="MIDV-123", status=MediaFileStatus.SCRAPED, metadata_id=meta.id
+        )
+
+    watermark_dir = tmp_path / "watermarks"
+    watermark_dir.mkdir()
+    Image.new("RGBA", (40, 20), (255, 0, 0, 255)).save(watermark_dir / "subtitle.png")
+
+    config = HotSettings(watermark=WatermarkConfig(enabled=True, scale=0.2))
+    org = OrganizeHandler(
+        repo, config, resource_store, web_client=cast("WebClient", _FakeImageClient()), watermark_dir=watermark_dir
+    )
+    result = await org.handle(OrganizePayload(library_id=lib.id, path=str(src_dir)))
+    assert result.success is True
+    assert result.result is not None
+    assert (result.result.organized, result.result.failed) == (2, 0)
+
+    out = lib_root / "Studio" / "MIDV-123"
+    assert sorted(p.name for p in out.iterdir()) == [
+        "MIDV-123-C-poster.jpg",
+        "MIDV-123-C-thumb.jpg",
+        "MIDV-123-C.mp4",
+        "MIDV-123-C.nfo",
+        "MIDV-123-poster.jpg",
+        "MIDV-123-thumb.jpg",
+        "MIDV-123.mp4",
+        "MIDV-123.nfo",
+        "extrafanart",
+        "fanart.jpg",
+    ]
+    assert sorted(p.name for p in (out / "extrafanart").iterdir()) == ["1.jpg", "2.jpg"]
+    for name, stamped in (("MIDV-123-C", True), ("MIDV-123", False)):
+        for kind in ("thumb", "poster"):
+            with Image.open(out / f"{name}-{kind}.jpg") as painted:
+                pixel = painted.convert("RGB").getpixel((20, 20))
+            assert isinstance(pixel, tuple)
+            assert (pixel[0] > 180 and pixel[2] < 80) is stamped, f"{name}-{kind}"
+    with Image.open(out / "fanart.jpg") as fanart:
+        pixel = fanart.convert("RGB").getpixel((20, 20))
+    assert isinstance(pixel, tuple) and pixel[2] > 180
 
 
 @pytest.mark.asyncio(loop_scope="function")

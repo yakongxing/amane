@@ -446,14 +446,14 @@ class TestResolvePathsDefaults:
         meta = _meta()
         result = resolve_paths(wp, meta, ext="mp4")
 
-        assert result.thumb == media / "StudioX" / "ABC-123" / "thumb.jpg"
+        assert result.thumb == media / "StudioX" / "ABC-123" / "ABC-123-thumb.jpg"
 
     def test_poster_default(self, media: Path):
         wp = Library(name="t", path=str(media), video_template="{studio}/{number}/{number}.{ext}")
         meta = _meta()
         result = resolve_paths(wp, meta, ext="mp4")
 
-        assert result.poster == media / "StudioX" / "ABC-123" / "poster.jpg"
+        assert result.poster == media / "StudioX" / "ABC-123" / "ABC-123-poster.jpg"
 
     def test_fanart_default(self, media: Path):
         wp = Library(name="t", path=str(media), video_template="{studio}/{number}/{number}.{ext}")
@@ -575,7 +575,7 @@ class TestResolvePathsEdgeCases:
         result = resolve_paths(wp, meta, ext="mp4", safe_dirs=[other])
 
         # video_dir should be other/ABC-123/
-        assert result.thumb == other / "ABC-123" / "thumb.jpg"
+        assert result.thumb == other / "ABC-123" / "ABC-123-thumb.jpg"
 
     def test_year_variable(self, media: Path):
         wp = Library(name="t", path=str(media), video_template="{year}/{number}/{number}.{ext}")
@@ -635,7 +635,7 @@ class TestSourceVariables:
         wp = Library(name="t", path=str(media), video_template="{raw_relpath}")
         result = resolve_paths(wp, _meta(), ext="mp4", source_path=source)
         assert result.video == source
-        assert result.poster == source.parent / "poster.jpg"
+        assert result.poster == source.parent / "MIDV-123-poster.jpg"
         assert result.nfo == source.parent / "MIDV-123.nfo"
 
     def test_raw_relpath_in_subtitle_template_refers_to_video_source(self, media: Path):
@@ -765,7 +765,7 @@ class TestPathTraversalProtection:
         result = resolve_paths(wp, _meta(), ext="mp4")
 
         assert result.video == media / "StudioX" / "ABC-123" / "ABC-123.mp4"
-        assert result.thumb == media / "StudioX" / "ABC-123" / "thumb.jpg"
+        assert result.thumb == media / "StudioX" / "ABC-123" / "ABC-123-thumb.jpg"
         assert result.nfo == media / "StudioX" / "ABC-123" / "ABC-123.nfo"
 
     def test_in_library_file_symlink_keeps_lexical_video_dir(self, media: Path):
@@ -781,7 +781,7 @@ class TestPathTraversalProtection:
         wp = Library(name="t", path=str(media), video_template=VIDEO_TEMPLATE_DEFAULT)
         result = resolve_paths(wp, _meta(), ext="mp4")
         assert result.video == dest
-        assert result.thumb == dest_dir / "thumb.jpg"
+        assert result.thumb == dest_dir / "ABC-123-thumb.jpg"
         assert result.nfo == dest_dir / "ABC-123.nfo"
 
     def test_dir_symlink_escaping_library_rejected(self, media: Path, etc: Path):
@@ -843,7 +843,7 @@ class TestResolvePathsLink:
         assert result.video == media / "StudioX" / "ABC-123" / "ABC-123.mp4"
         assert result.link == other / "StudioX" / "ABC-123" / "ABC-123.strm"
         assert result.nfo == other / "StudioX" / "ABC-123" / "ABC-123.nfo"
-        assert result.poster == other / "StudioX" / "ABC-123" / "poster.jpg"
+        assert result.poster == other / "StudioX" / "ABC-123" / "ABC-123-poster.jpg"
 
     def test_symlink_keeps_video_extension(self, media: Path, other: Path):
         wp = Library(

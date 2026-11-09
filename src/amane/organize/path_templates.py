@@ -34,8 +34,10 @@ class ResolvedPaths:
 
 
 VIDEO_TEMPLATE_DEFAULT = "{studio}/{number}/{number}[-CD{cd?}][-{sub?}].{ext}"
-THUMB_TEMPLATE_DEFAULT = "{link_dir}/thumb.jpg"
-POSTER_TEMPLATE_DEFAULT = "{link_dir}/poster.jpg"
+# 封面与海报的角标随各视频的文件标记而异, 按视频文件名各写一份, 同目录的多个版本才不互相覆盖;
+# 存量库由迁移 6f7f96674f11 固定为旧缺省. 背景图不叠角标, 与剧照、预告片一起由同目录的版本共用.
+THUMB_TEMPLATE_DEFAULT = "{link_dir}/{video_name}-thumb.jpg"
+POSTER_TEMPLATE_DEFAULT = "{link_dir}/{video_name}-poster.jpg"
 FANART_TEMPLATE_DEFAULT = "{link_dir}/fanart.jpg"
 EXTRAFANART_TEMPLATE_DEFAULT = "{link_dir}/extrafanart"
 EXTRAFANART_NAME_TEMPLATE_DEFAULT = "{index}.jpg"
