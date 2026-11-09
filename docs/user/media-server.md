@@ -52,8 +52,8 @@ Amane 与 Emby / Jellyfin 分工互补: 媒体服务器管理视频文件, 负�
         ├── MIDV-123-C.mp4        视频
         ├── MIDV-123-C.nfo        NFO
         ├── MIDV-123.zh.srt       字幕 (保留原文件名)
-        ├── poster.jpg            海报
-        ├── thumb.jpg             封面
+        ├── MIDV-123-C-poster.jpg 海报
+        ├── MIDV-123-C-thumb.jpg  封面
         ├── fanart.jpg            背景图 (内容同封面)
         └── extrafanart/          剧照
             ├── 1.jpg
@@ -63,15 +63,15 @@ Amane 与 Emby / Jellyfin 分工互补: 媒体服务器管理视频文件, 负�
 | 文件 | 来源 | 由谁决定 |
 |------|------|---------|
 | NFO | 影片元数据 | 「写入 NFO」开关与 NFO 模板 |
-| `poster.jpg` | 刮削的海报, 或由封面裁切 | 「整理时复制」与海报模板 |
-| `thumb.jpg` / `fanart.jpg` | 刮削的封面 | 「整理时复制」与封面、背景图模板 |
+| `<视频名>-poster.jpg` | 刮削的海报, 或由封面裁切 | 「整理时复制」与海报模板 |
+| `<视频名>-thumb.jpg` / `fanart.jpg` | 刮削的封面 | 「整理时复制」与封面、背景图模板 |
 | `extrafanart/` | 刮削的剧照 | 「整理时复制」、剧照模板与剧照文件名模板 |
 | `trailer.mp4` | 刮削的预告片 | 「整理时复制」(新建媒体库时默认不勾选) 与预告片模板 |
 | 字幕 | 视频同目录的外挂字幕 | 字幕扩展名与字幕模板 |
 
 剧照超过 9 张时, 默认的 `1.jpg`…`12.jpg` 在按文件名排序的媒体服务器里会变成 `1、10、11、12、2…`. 把剧照文件名模板改成 `{index_padded}.jpg` 或 `{number}-{index_padded}.jpg` 即可按序号排列, 文件名也能直接看出所属影片; 换模板前先清空 `extrafanart` 目录, 旧名字不会自动删除.
 
-开启 [水印](organize.md#watermark) 后, 海报与封面带有中字、无码、分辨率等角标. 各文件的路径均可通过模板修改, 语法见 [整理与路径模板](organize.md#placeholders).
+开启 [水印](organize.md#watermark) 后, 海报与封面带有中字、无码、分辨率等角标. 同一目录里有同一番号的多个版本时, 每个版本各有一份 NFO、海报与封面, 角标按各自的文件标记; 背景图、剧照与预告片共用一份. 各文件的路径均可通过模板修改, 语法见 [整理与路径模板](organize.md#placeholders).
 
 ### NFO {#nfo}
 
@@ -94,7 +94,7 @@ NFO 为 Kodi 格式, 根元素为 `<movie>`, 内容固定, 不提供自定义模
 | `<mpaa>` | 固定为 `JP-18+` |
 | `<来源标识id>` | 各刮削来源的作品 ID, 元素名为来源标识后接 `id` |
 
-标题已包含番号, 媒体服务器中按标题排序即按番号排序. 分集影片的每个分集各有一份 NFO, 图片默认共用.
+标题已包含番号, 媒体服务器中按标题排序即按番号排序. 分集影片的每个分集各有一份 NFO、海报与封面, 背景图与剧照默认共用.
 
 ## 推荐配置
 
@@ -135,7 +135,7 @@ NFO 为 Kodi 格式, 根元素为 `<movie>`, 内容固定, 不提供自定义模
 - 媒体服务器未自动发现变化时, 手动扫描该媒体库.
 
 !!! tip "每部影片一个目录"
-    封面、海报、背景图的默认文件名固定. 多部影片位于同一目录时会互相覆盖, 因此推荐保留默认模板中的 `{number}` 目录层.
+    背景图与剧照的默认文件名固定, 不同影片位于同一目录时会互相覆盖, 因此推荐保留默认模板中的 `{number}` 目录层.
 
 ## 网盘场景 {#cloud}
 
@@ -145,12 +145,12 @@ NFO 为 Kodi 格式, 根元素为 `<movie>`, 内容固定, 不提供自定义模
 /mnt/cloud/av/Studio Name/MIDV-123/MIDV-123.mp4     视频 (网盘)
 /local/emby/Studio Name/MIDV-123/MIDV-123.strm      STRM (本地)
 /local/emby/Studio Name/MIDV-123/MIDV-123.nfo
-/local/emby/Studio Name/MIDV-123/poster.jpg
+/local/emby/Studio Name/MIDV-123/MIDV-123-poster.jpg
 ...
 ```
 
 - 默认附属资源模板以 `{link_dir}` 为根, NFO、图片与字幕自动写入链接目录.
-- 链接文件名以 `{video_name}` 结尾时, 与默认 NFO 文件名一致. 链接文件名与视频文件名不同时, 将 NFO 模板改为 `{link_dir}/{link_name}.nfo`.
+- 链接文件名以 `{video_name}` 结尾时, 与默认 NFO、海报、封面文件名一致. 链接文件名与视频文件名不同时, 把这三个模板中的 `{video_name}` 改为 `{link_name}`.
 - 链接路径必须位于库外. Docker 部署中, 链接目录还须映射进容器, 并位于 `AMANE_SAFE_DIRS` 允许的范围内 (见 [配置参考](configuration.md)).
 - 在 Amane 中删除视频不会删除链接目录中的文件, 需要自行清理.
 

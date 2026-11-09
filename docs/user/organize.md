@@ -68,8 +68,8 @@
 | 视频路径模板 | `{studio}/{number}/{number}[-CD{cd?}][-{sub?}].{ext}` | 相对路径相对库根; 绝对路径须在库根或 `AMANE_SAFE_DIRS` 范围内 |
 | 链接路径模板 | 空 (不创建链接) | 必须是库外的绝对路径, 见 [链接与 STRM](#links) |
 | STRM 内容模板 | 空 (写入视频绝对路径) | 仅链接方式为 STRM 时有效 |
-| 封面模板 | `{link_dir}/thumb.jpg` | |
-| 海报模板 | `{link_dir}/poster.jpg` | |
+| 封面模板 | `{link_dir}/{video_name}-thumb.jpg` | 按视频各写一份, 角标随该视频 |
+| 海报模板 | `{link_dir}/{video_name}-poster.jpg` | 同上 |
 | 背景图模板 | `{link_dir}/fanart.jpg` | 内容与封面相同 |
 | 剧照模板 | `{link_dir}/extrafanart` | 目录 |
 | 剧照文件名模板 | `{index}.jpg` | 单段文件名, 必须含 `{index}` 或 `{index_padded}` |
@@ -82,7 +82,7 @@
 视频的扩展名始终取自源文件: 视频模板以 `.mp4` 结尾而源文件为 `.mkv` 时, 结果仍为 `.mkv`.
 
 !!! note
-    封面、海报、背景图与预告片的默认文件名固定. 多部影片整理到同一目录时会互相覆盖, 此时应在模板中使用 `{video_name}` 区分, 或保持每部影片一个目录.
+    背景图、剧照与预告片的默认文件名固定, 由同一目录的视频共用: 同一番号的多个版本共用没有问题, 不同影片整理到同一目录时会互相覆盖, 此时应在模板中使用 `{video_name}` 区分, 或保持每部影片一个目录. 封面与海报默认带视频文件名; 升级前创建的媒体库沿用 `thumb.jpg` / `poster.jpg`, 需要按版本区分时在库配置中修改这两个模板.
 
 ### 占位符 {#placeholders}
 
