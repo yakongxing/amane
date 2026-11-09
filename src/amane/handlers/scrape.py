@@ -3,11 +3,11 @@ from typing import TYPE_CHECKING, Protocol
 
 from structlog.contextvars import bind_contextvars
 
-from ..aggregate import SCALAR_FIELDS, AggregatedMetadata, CrawlerLike, FieldLanguage, aggregate, compile_priority
+from ..aggregate import SCALAR_FIELDS, CrawlerLike, aggregate, compile_priority
 from ..crawlers.models import SearchQuery
 from ..crawlers.site_roles import builtin_descriptors
 from ..db.models import TaskType
-from ..enums import ActorGender, MetadataField
+from ..enums import ActorGender
 from ..media import materialize_images
 from ..observability import current
 from ..observability.models import SiteOutcomeKind
@@ -15,6 +15,7 @@ from ..plugins.models import SourceDescriptor, SourceTrait
 from ._common import ensure_oshash, finalize_media_file
 from .models import ActorScrapePayload, CacheKind, OrganizePayload, ScrapePayload, ScrapeResult
 from .protocol import FollowupTask, TaskHandler, TaskResult
+from .translate import translate_text_fields
 
 if TYPE_CHECKING:
     from ..config import HotSettings
@@ -145,7 +146,18 @@ class ScrapeHandler(TaskHandler[ScrapePayload, ScrapeResult]):
 
         # 翻译文本字段; 失败不阻断刮削.
         if self._translator is not None:
-            await self._translate_metadata(result.metadata, field_language, CacheKind.trans in payload.use_cache)
+            translated = await translate_text_fields(
+                self._translator,
+                title=result.metadata.title,
+                plot=result.metadata.plot,
+                fields=self._config.llm.translate_fields,
+                field_language=field_language,
+                use_cache=CacheKind.trans in payload.use_cache,
+            )
+            if translated.title is not None:
+                result.metadata.title = translated.title
+            if translated.plot is not None:
+                result.metadata.plot = translated.plot
 
         # 物化到 Resource; 失败保留原始 URL.
         poster_out = result.metadata.poster_urls
@@ -302,37 +314,3 @@ class ScrapeHandler(TaskHandler[ScrapePayload, ScrapeResult]):
         except Exception:
             current().warning("failed to build actor scrape followups", actors=actor_names)
             return []
-
-    async def _translate_metadata(
-        self, metadata: AggregatedMetadata, field_language: FieldLanguage, use_cache: bool
-    ) -> None:
-        """就地翻译 ``llm.translate_fields`` 中的文本标量. 单字段失败不影响其余, 全程不抛.
-        ``use_cache`` 为 False 时跳过译文缓存读取, 但仍刷新缓存.
-        """
-        assert self._translator is not None
-        fields = self._config.llm.translate_fields
-        if MetadataField.TITLE in fields and metadata.title:
-            translated = await self._translate_field(metadata.title, field_language, MetadataField.TITLE, use_cache)
-            if translated:
-                metadata.title = translated
-        if MetadataField.PLOT in fields and metadata.plot:
-            translated = await self._translate_field(metadata.plot, field_language, MetadataField.PLOT, use_cache)
-            if translated:
-                metadata.plot = translated
-
-    async def _translate_field(
-        self, value: str, field_language: FieldLanguage, field: MetadataField, use_cache: bool
-    ) -> str | None:
-        """翻译单字段; 异常忽略. 无目标语言或失败时返回 None."""
-        assert self._translator is not None
-        target = field_language.get(field)
-        if target is None:
-            return None
-        try:
-            result = await self._translator.translate(value, target, field, use_cache=use_cache)
-        except Exception as e:
-            current().warning("translation failed, keeping original", field=str(field), error=str(e))
-            return None
-        if result:
-            current().debug("field translated", field=str(field), target=str(target))
-        return result

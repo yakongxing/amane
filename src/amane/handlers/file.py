@@ -248,6 +248,73 @@ async def apply_file_operations(
     )
 
 
+@dataclass
+class NfoRewriteResult:
+    written: list[Path] = field(default_factory=list)
+    failed: list[Path] = field(default_factory=list)
+    missing: int = 0
+    """关联文件中找不到已有 NFO 的数量."""
+
+
+async def rewrite_existing_nfos(
+    repo: Repository,
+    previous: Metadata,
+    metadata: Metadata,
+    safe_dirs: Sequence[Path] | None = (),
+) -> NfoRewriteResult:
+    """把 ``metadata`` 覆盖写入该条目各关联文件已有的 NFO; 不移动视频, 不新建 NFO.
+
+    NFO 位置按库模板渲染, 视频取当前路径: 先用修改前的 ``previous`` 渲染 (模板引用了被修改的字段时,
+    磁盘上的 NFO 是按旧值整理出来的), 再用 ``metadata`` 渲染兜底. 两处都没有现存文件时计入 ``missing``.
+    """
+    assert metadata.id is not None
+    result = NfoRewriteResult()
+    for media in await repo.get_media_by_metadata_id(metadata.id):
+        library = await repo.get_library(media.library_id)
+        target = None
+        if library is not None:
+            target = await _existing_nfo_path(repo, library, media, (previous, metadata), safe_dirs)
+        if target is None:
+            result.missing += 1
+        elif target in result.written or target in result.failed:
+            # 分集共用一个 NFO 模板时, 多个文件渲染到同一路径
+            continue
+        elif await write_nfo_file(metadata, target):
+            result.written.append(target)
+        else:
+            result.failed.append(target)
+    return result
+
+
+async def _existing_nfo_path(
+    repo: Repository,
+    library: Library,
+    media: MediaFile,
+    candidates: Sequence[Metadata],
+    safe_dirs: Sequence[Path] | None,
+) -> Path | None:
+    source = Path(media.path)
+    file_info = parse_file_info(media.path, has_external_subtitle=media.has_external_subtitle)
+    for candidate in candidates:
+        actor_genders = {a.name: a.gender for a in await repo.get_actors_by_names(candidate.actors)}
+        try:
+            paths = resolve_paths(
+                library,
+                candidate,
+                ext=source.suffix.lstrip("."),
+                file_info=file_info,
+                source_path=source,
+                safe_dirs=safe_dirs,
+                actor_genders=actor_genders,
+            )
+        except ValueError:
+            continue
+        existing = await existing_disk_path(paths.nfo)
+        if existing is not None:
+            return existing
+    return None
+
+
 async def commit_organized_media_file(
     repo: Repository,
     media: MediaFile,

@@ -11,4 +11,5 @@ from .rescrape import *
 from .scan_invalid import *
 from .scrape import *
 from .semantic import *
+from .translate import TranslatedFields, translate_text_fields
 from .upscale import *

@@ -35,7 +35,7 @@ from ..handlers import (
     UpscaleHandler,
 )
 from ..library import InventoryStore
-from ..llm import TranslationCache, TranslationCoalescer, build_translator
+from ..llm import TranslationCache, TranslationCoalescer, Translator, build_translator
 from ..media.watermarks import user_watermark_dir
 from ..net.browser import BrowserPool
 from ..net.http import RateLimiters, WebClient, site_proxy_overrides
@@ -231,6 +231,8 @@ class AppRuntime:
     image_token: str | None = None
     translation_cache: TranslationCache | None = None
     translation_coalescer: TranslationCoalescer | None = None
+    translator: Translator | None = None
+    """刮削与手动翻译共用的一份; 未启用或缺密钥时为 None, 随 ``_rebuild`` 重建."""
     r18_db: R18Database | None = None
     agent_service: AgentService | None = None
     plugin_manager: PluginManager | None = None
@@ -327,6 +329,8 @@ class AppRuntime:
             self.repo.set_media_hook(self.semantic)
             self._bind_semantic_bridge()
 
+        self.translator = build_hot_translator(hot, self.translation_cache, self.translation_coalescer)
+
         # 使用新处理器与并发数重建 worker
         self.worker = AsyncWorker(
             repo=self.repo,
@@ -337,8 +341,7 @@ class AppRuntime:
                 self.resource_store,
                 hot,
                 self.safe_dirs,
-                self.translation_cache,
-                self.translation_coalescer,
+                self.translator,
                 self.config.cold.data_dir,
                 self.plugin_manager,
                 library_locks=self.library_locks,
@@ -543,26 +546,11 @@ class AppRuntime:
         return manager
 
 
-def build_handlers(
-    repo: Repository,
-    factory: CrawlerFactory,
-    web_client: WebClient,
-    resource_store: ResourceStore,
-    hot: HotSettings,
-    safe_dirs: Sequence[Path] | None = (),
-    translation_cache: TranslationCache | None = None,
-    translation_coalescer: TranslationCoalescer | None = None,
-    state_dir: Path | None = None,
-    plugin_manager: PluginManager | None = None,
-    *,
-    semantic: SemanticService,
-    library_locks: LibraryTaskLocks | None = None,
-    inventory_store: InventoryStore | None = None,
-) -> dict[TaskType, TaskHandler[Any, Any]]:
-    # 未启用/缺密钥时 translator 为 None, ScrapeHandler 跳过翻译.
-    # 经 _rebuild() 热重载; 代理沿用 network.proxy.
-    # 译文缓存与并发合并状态是会话级, 热重载时复用同一实例.
-    translator = build_translator(
+def build_hot_translator(
+    hot: HotSettings, cache: TranslationCache | None, coalescer: TranslationCoalescer | None
+) -> Translator | None:
+    """未启用或缺密钥时返回 None. 代理沿用 network.proxy; 缓存与并发合并状态是会话级, 由调用方复用同一实例."""
+    return build_translator(
         enabled=hot.llm.enabled,
         api_type=hot.llm.api_type,
         api_key=hot.llm.api_key,
@@ -572,9 +560,27 @@ def build_handlers(
         proxy=hot.network.proxy,
         system_prompt=hot.llm.system_prompt,
         field_prompts=hot.llm.field_prompts,
-        cache=translation_cache,
-        coalescer=translation_coalescer,
+        cache=cache,
+        coalescer=coalescer,
     )
+
+
+def build_handlers(
+    repo: Repository,
+    factory: CrawlerFactory,
+    web_client: WebClient,
+    resource_store: ResourceStore,
+    hot: HotSettings,
+    safe_dirs: Sequence[Path] | None = (),
+    translator: Translator | None = None,
+    state_dir: Path | None = None,
+    plugin_manager: PluginManager | None = None,
+    *,
+    semantic: SemanticService,
+    library_locks: LibraryTaskLocks | None = None,
+    inventory_store: InventoryStore | None = None,
+) -> dict[TaskType, TaskHandler[Any, Any]]:
+    # translator 为 None 时 ScrapeHandler 跳过翻译; 传入 AppRuntime 那一份, 与手动翻译共用限速.
     if library_locks is None:
         library_locks = LibraryTaskLocks()
     # 缺省自建只服务精简构造 (测试); 生产必须传入 AppRuntime 的那一份, 否则扫描写进的清单

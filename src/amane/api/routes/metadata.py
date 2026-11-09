@@ -10,7 +10,7 @@ from ...db.embeddings import EmbeddingKind
 from ...db.models import Metadata, MetadataSortField, SavedQueryEntity, SortOrder, TaskType
 from ...db.repo_types import WriteMode
 from ...db.repos.media import file_phase_of
-from ...handlers import ScrapePayload
+from ...handlers import ScrapePayload, rewrite_existing_nfos, translate_text_fields
 from ...media import manual_crop_image
 from ...parsing import FilePhaseSummary as ParsedFilePhase
 from ...parsing import summarize_file_phases
@@ -32,6 +32,7 @@ from ..models import (
     MetadataLocksRequest,
     MetadataMergeEntriesRequest,
     MetadataResponse,
+    MetadataTranslateResponse,
     MetadataUserTagsRequest,
     PartialMetadata,
     SemanticHitInfo,
@@ -345,6 +346,61 @@ async def update_metadata(metadata_id: int, req: PartialMetadata, repo: RepoDep)
         raise HTTPException(status_code=404, detail="影片不存在")
     logger.info("metadata updated", metadata_id=metadata_id, fields=list(updates.keys()))
     return to_resp(MetadataResponse, metadata)
+
+
+@router.post("/{metadata_id}/translate")
+async def translate_metadata(metadata_id: int, repo: RepoDep, runtime: RuntimeDep) -> MetadataTranslateResponse:
+    """按 ``llm.translate_fields`` 与 ``scraping.field_language`` 翻译条目当前值, 写库后覆盖已有 NFO.
+
+    译文按手动写入处理 (锁定该字段), 重新刮削不会再覆盖. 翻译失败与已是目标语言都保留原值,
+    不写库也不写 NFO.
+    """
+    translator = runtime.translator
+    if translator is None:
+        raise HTTPException(status_code=503, detail="LLM 翻译未启用或未配置 API Key")
+    hot = runtime.config.hot
+    if not hot.llm.translate_fields:
+        raise HTTPException(status_code=400, detail="未配置需要翻译的字段")
+    metadata = await repo.get_metadata(metadata_id)
+    if metadata is None:
+        raise HTTPException(status_code=404, detail="影片不存在")
+
+    translated = await translate_text_fields(
+        translator,
+        title=metadata.title,
+        plot=metadata.plot,
+        fields=hot.llm.translate_fields,
+        field_language=hot.scraping.field_language,
+        use_cache=True,
+    )
+    fields = translated.fields()
+    if not fields:
+        return MetadataTranslateResponse(metadata=to_resp(MetadataResponse, metadata), translated_fields=[])
+
+    updates: MetadataFields = {}
+    if translated.title is not None:
+        updates["title"] = translated.title
+    if translated.plot is not None:
+        updates["plot"] = translated.plot
+    updated = await repo.update_metadata(metadata_id, mode=WriteMode.MANUAL, **updates)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="影片不存在")
+    nfo = await rewrite_existing_nfos(repo, metadata, updated, runtime.safe_dirs)
+    logger.info(
+        "metadata translated",
+        metadata_id=metadata_id,
+        fields=[str(f) for f in fields],
+        nfo_written=len(nfo.written),
+        nfo_failed=len(nfo.failed),
+        nfo_missing=nfo.missing,
+    )
+    return MetadataTranslateResponse(
+        metadata=to_resp(MetadataResponse, updated),
+        translated_fields=fields,
+        nfo_paths=[str(p) for p in nfo.written],
+        nfo_failed=[str(p) for p in nfo.failed],
+        nfo_missing=nfo.missing,
+    )
 
 
 @router.put("/{metadata_id}/locks")

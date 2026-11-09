@@ -70,6 +70,7 @@ from .metadata import (
     MetadataLocksRequest,
     MetadataMergeEntriesRequest,
     MetadataResponse,
+    MetadataTranslateResponse,
     MetadataUserTagsRequest,
     PartialMetadata,
     SemanticHitInfo,

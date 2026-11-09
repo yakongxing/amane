@@ -34,7 +34,7 @@ from ..semantic import SemanticService
 from ..subtitles.factory import SubtitleFactory
 from ..utils.random_logging import run_random_logging
 from .proxy_failure_cache import ProxyFailureCache
-from .runtime import AppRuntime, build_handlers, build_network_stack, build_r18_db
+from .runtime import AppRuntime, build_handlers, build_hot_translator, build_network_stack, build_r18_db
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
@@ -183,6 +183,7 @@ async def start_app(config: ConfigManager | None = None) -> AppSession:
     library_locks = LibraryTaskLocks()
     inventory_store = InventoryStore()
     semantic_service = SemanticService(repo, resource_store, cold.data_dir, hot.semantic)
+    translator = build_hot_translator(hot, translation_cache, translation_coalescer)
     handlers = build_handlers(
         repo,
         factory,
@@ -190,8 +191,7 @@ async def start_app(config: ConfigManager | None = None) -> AppSession:
         resource_store,
         hot,
         safe_dirs,
-        translation_cache,
-        translation_coalescer,
+        translator,
         cold.data_dir,
         plugin_manager,
         library_locks=library_locks,
@@ -254,6 +254,7 @@ async def start_app(config: ConfigManager | None = None) -> AppSession:
         image_token=image_token,
         translation_cache=translation_cache,
         translation_coalescer=translation_coalescer,
+        translator=translator,
         r18_db=r18_db,
         agent_service=agent_service,
         plugin_manager=plugin_manager,
