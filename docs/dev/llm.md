@@ -18,12 +18,15 @@
 
 ## 翻译嵌入点
 
-接入位置在 `ScrapeHandler.handle`: `aggregate()` 之后、`upsert_metadata()` 之前. 翻译是对 `AggregatedMetadata` 文本字段的**就地变换**, 与 image materialize 并列为聚合后的后处理步骤.
+两个调用点共用 `handlers/translate.py::translate_text_fields` (字段集与目标语言判定只在这里) 与 `AppRuntime.translator` 同一实例 (共用限速):
 
-- **按条件跳过**: translator 为 `None` (未配置) 或单字段翻译抛异常时保留原值、不阻断刮削 — 与资源物化同款策略.
+- **刮削**: `ScrapeHandler.handle` 中 `aggregate()` 之后、`upsert_metadata()` 之前, 就地改写 `AggregatedMetadata`, 与 image materialize 并列为聚合后的后处理步骤.
+- **手动** (`POST /metadata/{id}/translate`): 输入是库内当前值而非 `raw`, 译文按 `WriteMode.MANUAL` 写入 (锁定字段, 重刮不再覆盖), 再经 `handlers/file.py::rewrite_existing_nfos` 覆盖已有 NFO. NFO 是派生文件的规则不变: 只覆盖按库模板定位到的现存文件, 不搬视频、不新建; 模板可能引用被翻译的字段, 定位先用翻译前的条目渲染.
+
+- **按条件跳过**: translator 为 `None` (未配置) 或单字段翻译抛异常时保留原值、不阻断刮削 — 与资源物化同款策略; 手动端点在 translator 为 `None` 时 503.
 - **缓存语义不变**: `Metadata.raw` 仍存**源语言**站点快照; 译文是派生值, 写入 `Metadata` 标量字段.
 - **独立限速**: LLM 端点用自己的 `AsyncLimiter`, 与站点 host 限速器隔离.
-- **覆盖字段**: 由 `llm.translate_fields` 控制, 当前仅文本标量. 扩展到 tags / series 等须在 `_translate_metadata` 显式列出 (项目禁反射).
+- **覆盖字段**: 由 `llm.translate_fields` 控制, 当前仅文本标量. 扩展到 tags / series 等须在 `translate_text_fields` 显式列出 (项目禁反射).
 
 ## 自定义提示词
 
@@ -40,7 +43,7 @@
 
 - **键 = `(源文本 sha256, 目标语言, 字段, system 提示词 sha256)`**. 不含 number (翻译输出只取决于文本, 系列共用简介天然去重), 含 field (不同字段用不同说明), 含 system 提示词指纹 (实际发给模型的 system 内容变化即失效); 不含 model / temperature.
 - **独立 SQLite 文件** (`data_dir/translations.db`), **不纳入主库、不经由 Alembic**: 纯缓存, 仅 `CREATE TABLE IF NOT EXISTS`, 可安全直接删除并在下次自动重建. 现有表的列集合与当前 schema 不符时整表 `DROP` 重建.
-- **会话级注入**: `start_app` 创建 → `AppRuntime.translation_cache` → 穿过 `build_handlers` / `build_translator`; 与 `ResourceStore` 同属不随热重载重建的对象, `_rebuild()` 复用同一实例 (修改 LLM 配置不会丢弃缓存).
+- **会话级注入**: `start_app` 创建 → `AppRuntime.translation_cache` → `build_hot_translator`; 与 `ResourceStore` 同属不随热重载重建的对象, `_rebuild()` 重建 translator 时复用同一实例 (修改 LLM 配置不会丢弃缓存).
 - **只缓存 LLM 路径**: 中文简繁 (内置 zhconv) 廉价且确定, 不进缓存; 模型返回空也不写, 下次重试.
 - **并发合并**: 同一键的并发翻译只发出一次请求, 后到的调用等待并复用其结果. 合并范围包含缓存读取, 否则命中与登记之间仍会各自请求一次; 合并键与缓存键相同, 跨番号的相同文本一并合并. 状态与会话同生命周期 (`llm/coalescer.py::TranslationCoalescer`), 热重载重建 translator 时复用.
 - **失败与取消**: 首个请求失败或被取消时后到的调用得到 `None` 并保留原值, 失败不写缓存, 下次刮削重新请求. `use_cache=False` 的并发调用同样复用同一次翻译 (含先到请求的缓存命中), 重译请求只发出一次.
