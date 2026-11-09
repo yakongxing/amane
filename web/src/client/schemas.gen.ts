@@ -6211,6 +6211,52 @@ export const MetadataSortFieldSchema = {
     title: 'MetadataSortField'
 } as const;
 
+export const MetadataTranslateResponseSchema = {
+    properties: {
+        metadata: {
+            $ref: '#/components/schemas/MetadataResponse'
+        },
+        translated_fields: {
+            items: {
+                $ref: '#/components/schemas/MetadataField'
+            },
+            type: 'array',
+            title: 'Translated Fields',
+            description: '写入译文的字段; 为空表示各字段已是目标语言、未配置目标语言或翻译失败, 原值保留'
+        },
+        nfo_paths: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Nfo Paths',
+            description: '已覆盖写入的 NFO'
+        },
+        nfo_failed: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Nfo Failed',
+            description: '写入失败的 NFO'
+        },
+        nfo_missing: {
+            type: 'integer',
+            title: 'Nfo Missing',
+            description: '关联文件中找不到已有 NFO 的数量; 不会新建'
+        }
+    },
+    type: 'object',
+    required: [
+        'metadata',
+        'translated_fields',
+        'nfo_paths',
+        'nfo_failed',
+        'nfo_missing'
+    ],
+    title: 'MetadataTranslateResponse'
+} as const;
+
 export const MetadataUserTagsRequestSchema = {
     properties: {
         ids: {

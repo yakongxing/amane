@@ -3099,6 +3099,37 @@ export type MetadataResponse = {
 export type MetadataSortField = 'number' | 'title' | 'studio' | 'release' | 'created_at' | 'updated_at' | 'file_count' | 'score';
 
 /**
+ * MetadataTranslateResponse
+ */
+export type MetadataTranslateResponse = {
+    metadata: MetadataResponse;
+    /**
+     * Translated Fields
+     *
+     * 写入译文的字段; 为空表示各字段已是目标语言、未配置目标语言或翻译失败, 原值保留
+     */
+    translated_fields: Array<MetadataField>;
+    /**
+     * Nfo Paths
+     *
+     * 已覆盖写入的 NFO
+     */
+    nfo_paths: Array<string>;
+    /**
+     * Nfo Failed
+     *
+     * 写入失败的 NFO
+     */
+    nfo_failed: Array<string>;
+    /**
+     * Nfo Missing
+     *
+     * 关联文件中找不到已有 NFO 的数量; 不会新建
+     */
+    nfo_missing: number;
+};
+
+/**
  * MetadataUserTagsRequest
  */
 export type MetadataUserTagsRequest = {
@@ -6685,6 +6716,36 @@ export type UpdateMetadataResponses = {
 };
 
 export type UpdateMetadataResponse = UpdateMetadataResponses[keyof UpdateMetadataResponses];
+
+export type TranslateMetadataData = {
+    body?: never;
+    path: {
+        /**
+         * Metadata Id
+         */
+        metadata_id: number;
+    };
+    query?: never;
+    url: '/api/metadata/{metadata_id}/translate';
+};
+
+export type TranslateMetadataErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TranslateMetadataError = TranslateMetadataErrors[keyof TranslateMetadataErrors];
+
+export type TranslateMetadataResponses = {
+    /**
+     * Successful Response
+     */
+    200: MetadataTranslateResponse;
+};
+
+export type TranslateMetadataResponse = TranslateMetadataResponses[keyof TranslateMetadataResponses];
 
 export type SetMetadataLocksData = {
     body: MetadataLocksRequest;

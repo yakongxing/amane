@@ -1607,6 +1607,49 @@
         }
       }
     },
+    "/api/metadata/{metadata_id}/translate": {
+      "post": {
+        "tags": [
+          "metadata"
+        ],
+        "summary": "Translate Metadata",
+        "description": "按 ``llm.translate_fields`` 与 ``scraping.field_language`` 翻译条目当前值, 写库后覆盖已有 NFO.\n\n译文按手动写入处理 (锁定该字段), 重新刮削不会再覆盖. 翻译失败与已是目标语言都保留原值,\n不写库也不写 NFO.",
+        "operationId": "translate_metadata",
+        "parameters": [
+          {
+            "name": "metadata_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Metadata Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataTranslateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/metadata/{metadata_id}/locks": {
       "put": {
         "tags": [
@@ -12995,6 +13038,51 @@
           "score"
         ],
         "title": "MetadataSortField"
+      },
+      "MetadataTranslateResponse": {
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/MetadataResponse"
+          },
+          "translated_fields": {
+            "items": {
+              "$ref": "#/components/schemas/MetadataField"
+            },
+            "type": "array",
+            "title": "Translated Fields",
+            "description": "写入译文的字段; 为空表示各字段已是目标语言、未配置目标语言或翻译失败, 原值保留"
+          },
+          "nfo_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Nfo Paths",
+            "description": "已覆盖写入的 NFO"
+          },
+          "nfo_failed": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Nfo Failed",
+            "description": "写入失败的 NFO"
+          },
+          "nfo_missing": {
+            "type": "integer",
+            "title": "Nfo Missing",
+            "description": "关联文件中找不到已有 NFO 的数量; 不会新建"
+          }
+        },
+        "type": "object",
+        "required": [
+          "metadata",
+          "translated_fields",
+          "nfo_paths",
+          "nfo_failed",
+          "nfo_missing"
+        ],
+        "title": "MetadataTranslateResponse"
       },
       "MetadataUserTagsRequest": {
         "properties": {

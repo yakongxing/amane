@@ -25,6 +25,7 @@ import {
   IconExternalLink,
   IconFolders,
   IconGitMerge,
+  IconLanguage,
   IconLock,
   IconLockOpen,
   IconPencil,
@@ -52,10 +53,15 @@ import {
   listMetadataQueryKey,
   setMetadataLocksMutation,
   submitTaskMutation,
+  translateMetadataMutation,
   updateMetadataMutation,
 } from "@/client/@tanstack/react-query.gen";
 import { getMetadataSchema } from "@/client/sdk.gen";
-import type { MetadataField, MetadataResponse } from "@/client/types.gen";
+import type {
+  MetadataField,
+  MetadataResponse,
+  MetadataTranslateResponse,
+} from "@/client/types.gen";
 import { FacetBadge } from "@/components/media/facet-badge";
 import { LockChip, LockToggle, type LockProps } from "@/components/media/field-lock";
 import { UserTagActions } from "@/components/media/user-tag-add";
@@ -68,6 +74,7 @@ import { type JSONSchemaObject, resolveSchema } from "@/components/schema-form/s
 import { SchemaForm } from "@/components/schema-form/schema-form";
 import { extractErrorMessage } from "@/lib/api-error";
 import { confirm } from "@/lib/confirm";
+import { useConfig } from "@/hooks/use-config";
 import { USER_TAG_FACET_LIST } from "@/lib/facets";
 import { FIELD_LABEL_KEY, LOCKABLE_FIELDS } from "@/lib/media/metadata-fields";
 import { proxyImageUrl } from "@/lib/utils";
@@ -270,6 +277,50 @@ function TitleDetailPage() {
         color: "red",
       }),
   });
+
+  const { data: config } = useConfig();
+  const llmEnabled = config?.llm?.enabled === true;
+
+  const translateMutation = useMutation({
+    ...translateMetadataMutation(),
+    onSuccess: (result) => {
+      notifyTranslated(result);
+      if (result.translated_fields.length === 0) return;
+      invalidateDetail();
+      void queryClient.invalidateQueries({ queryKey: listMetadataQueryKey() });
+    },
+    onError: (err) =>
+      notifications.show({
+        message: extractErrorMessage(err, t("common:toast.operationFailed")),
+        color: "red",
+      }),
+  });
+
+  function notifyTranslated(result: MetadataTranslateResponse) {
+    if (result.translated_fields.length === 0) {
+      notifications.show({ message: t("detail.translate.nothing"), color: "yellow" });
+      return;
+    }
+    const fields = result.translated_fields
+      .map((f) => t(FIELD_LABEL_KEY[f]))
+      .join(t("detail.translate.separator"));
+    const nfoLines: string[] = [];
+    if (result.nfo_paths.length > 0) {
+      nfoLines.push(t("detail.translate.nfoWritten", { count: result.nfo_paths.length }));
+    }
+    if (result.nfo_failed.length > 0) {
+      nfoLines.push(t("detail.translate.nfoFailed", { paths: result.nfo_failed.join(", ") }));
+    }
+    if (result.nfo_paths.length === 0 && result.nfo_failed.length === 0 && result.nfo_missing > 0) {
+      nfoLines.push(t("detail.translate.nfoMissing"));
+    }
+    notifications.show({
+      title: t("detail.translate.done", { fields }),
+      message: nfoLines.join("\n") || undefined,
+      color: result.nfo_failed.length > 0 ? "orange" : "blue",
+      style: { whiteSpace: "pre-line" },
+    });
+  }
 
   const ensureTagsMutation = useMutation(createUserTagsMutation());
   const applyTagsMutation = useMutation(batchMetadataUserTagsMutation());
@@ -831,6 +882,22 @@ function TitleDetailPage() {
             >
               {t("common:actions.edit")}
             </Button>
+            <Tooltip
+              label={llmEnabled ? t("detail.translate.hint") : t("detail.translate.disabled")}
+              multiline
+              w={260}
+            >
+              <Button
+                size="xs"
+                variant="light"
+                leftSection={<IconLanguage size={14} />}
+                loading={translateMutation.isPending}
+                disabled={!llmEnabled}
+                onClick={() => translateMutation.mutate({ path: { metadata_id: id } })}
+              >
+                {t("detail.translate.action")}
+              </Button>
+            </Tooltip>
             <Menu shadow="md" position="bottom-start">
               <Menu.Target>
                 <Button

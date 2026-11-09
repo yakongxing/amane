@@ -189,7 +189,18 @@
     "subtitleExists": "视频旁边已有同名字幕。",
     "subtitleOverwrite": "覆盖",
     "subtitleSaved": "字幕已保存: {{path}}",
-    "subtitleFetch": "下载"
+    "subtitleFetch": "下载",
+    "translate": {
+      "action": "LLM 翻译",
+      "hint": "按设置中的翻译字段与目标语言翻译当前值; 译文写入后锁定该字段, 并覆盖已整理文件旁的 NFO",
+      "disabled": "需先在设置中启用 LLM 翻译",
+      "nothing": "没有字段被翻译: 已是目标语言或翻译失败, 原值保留",
+      "done": "已翻译: {{fields}}",
+      "separator": "、",
+      "nfoWritten": "已覆盖 {{count}} 个 NFO",
+      "nfoFailed": "NFO 写入失败: {{paths}}",
+      "nfoMissing": "未找到已有 NFO, 整理时写出"
+    }
   },
   "browse": {
     "title": "分类浏览",

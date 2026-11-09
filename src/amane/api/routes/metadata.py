@@ -375,7 +375,13 @@ async def translate_metadata(metadata_id: int, repo: RepoDep, runtime: RuntimeDe
     )
     fields = translated.fields()
     if not fields:
-        return MetadataTranslateResponse(metadata=to_resp(MetadataResponse, metadata), translated_fields=[])
+        return MetadataTranslateResponse(
+            metadata=to_resp(MetadataResponse, metadata),
+            translated_fields=[],
+            nfo_paths=[],
+            nfo_failed=[],
+            nfo_missing=0,
+        )
 
     updates: MetadataFields = {}
     if translated.title is not None:

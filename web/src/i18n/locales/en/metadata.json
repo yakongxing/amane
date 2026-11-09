@@ -192,7 +192,19 @@
     "subtitleExists": "A subtitle with the same name already exists next to the video.",
     "subtitleOverwrite": "Overwrite",
     "subtitleSaved": "Subtitle saved: {{path}}",
-    "subtitleFetch": "Download"
+    "subtitleFetch": "Download",
+    "translate": {
+      "action": "LLM translate",
+      "hint": "Translates current values using the translated fields and target languages in settings; translated fields are locked and NFO files next to organized videos are overwritten",
+      "disabled": "Enable LLM translation in settings first",
+      "nothing": "Nothing translated: already in the target language or translation failed; original values kept",
+      "done": "Translated: {{fields}}",
+      "separator": ", ",
+      "nfoWritten_one": "Overwrote {{count}} NFO",
+      "nfoWritten_other": "Overwrote {{count}} NFO files",
+      "nfoFailed": "Failed to write NFO: {{paths}}",
+      "nfoMissing": "No existing NFO found; it will be written when organizing"
+    }
   },
   "browse": {
     "title": "Browse",
