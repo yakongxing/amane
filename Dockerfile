@@ -15,6 +15,9 @@ RUN pnpm build
 FROM python:3.14-slim AS base
 WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+# pyproject 的 python-preference = "only-managed" 服务桌面打包; 镜像里沿用基础镜像的 3.14,
+# 否则 uv 会下载最新托管版本, 而部分依赖 (onnxruntime) 还没有对应 ABI 的 wheel.
+ENV UV_PYTHON_PREFERENCE=only-system
 
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
