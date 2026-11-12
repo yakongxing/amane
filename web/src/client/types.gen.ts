@@ -2691,6 +2691,12 @@ export type MetadataBatchDeleteResponse = {
      * 不存在的 id 数量
      */
     missing: number;
+    /**
+     * Skipped
+     *
+     * 请求内重复的 id 数量; 已去重
+     */
+    skipped?: number;
 };
 
 /**
@@ -2743,6 +2749,12 @@ export type MetadataBatchScrapeResponse = {
      * 不存在的 id 数量
      */
     missing: number;
+    /**
+     * Skipped
+     *
+     * 请求内重复的 id 数量; 已去重
+     */
+    skipped?: number;
     /**
      * Task Ids
      *
@@ -2812,13 +2824,147 @@ export type MetadataDetailResponse = {
 export type MetadataField = 'title' | 'plot' | 'actors' | 'directors' | 'tags' | 'series' | 'release' | 'runtime' | 'publisher' | 'studio' | 'poster_urls' | 'thumb_urls' | 'trailer_urls' | 'extrafanart' | 'score';
 
 /**
+ * MetadataListItem
+ *
+ * 列表与语义检索的条目: 不含 raw / field_sources, 详情才返回全量.
+ */
+export type MetadataListItem = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Number
+     */
+    number: string;
+    content_type: ContentType;
+    /**
+     * Title
+     */
+    title?: string | null;
+    /**
+     * Actors
+     */
+    actors?: Array<string>;
+    /**
+     * Studio
+     */
+    studio?: string | null;
+    /**
+     * Publisher
+     */
+    publisher?: string | null;
+    /**
+     * Release
+     */
+    release?: string | null;
+    /**
+     * Runtime
+     */
+    runtime?: number | null;
+    /**
+     * Tags
+     */
+    tags?: Array<string>;
+    /**
+     * Series
+     */
+    series?: string | null;
+    /**
+     * Plot
+     */
+    plot?: string | null;
+    /**
+     * Directors
+     */
+    directors?: Array<string>;
+    /**
+     * Poster Url
+     */
+    poster_url?: string | null;
+    /**
+     * Thumb Url
+     */
+    thumb_url?: string | null;
+    /**
+     * Trailer Url
+     */
+    trailer_url?: string | null;
+    /**
+     * Extrafanart
+     */
+    extrafanart?: Array<string>;
+    /**
+     * Score
+     */
+    score?: number | null;
+    /**
+     * Vr
+     */
+    vr?: boolean;
+    /**
+     * Poster Urls
+     */
+    poster_urls?: Array<string>;
+    /**
+     * Thumb Urls
+     */
+    thumb_urls?: Array<string>;
+    /**
+     * Trailer Urls
+     */
+    trailer_urls?: Array<string>;
+    /**
+     * Extrafanart Urls
+     */
+    extrafanart_urls?: {
+        [key: string]: unknown;
+    };
+    /**
+     * Scores
+     */
+    scores?: {
+        [key: string]: number;
+    };
+    /**
+     * External Ids
+     */
+    external_ids?: {
+        [key: string]: unknown;
+    };
+    /**
+     * Source Urls
+     */
+    source_urls?: {
+        [key: string]: unknown;
+    };
+    /**
+     * Locked Fields
+     */
+    locked_fields?: Array<MetadataField>;
+    /**
+     * File Count
+     */
+    file_count?: number;
+    file_phase?: FilePhaseSummary;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+    /**
+     * Updated At
+     */
+    updated_at?: string | null;
+};
+
+/**
  * MetadataListResponse
  */
 export type MetadataListResponse = {
     /**
      * Items
      */
-    items: Array<MetadataResponse>;
+    items: Array<MetadataListItem>;
     /**
      * Total
      */
@@ -2951,6 +3097,8 @@ export type MetadataPartial = {
 
 /**
  * MetadataResponse
+ *
+ * 详情与单条写接口的全量条目: 在列表项之上补 raw / field_sources.
  */
 export type MetadataResponse = {
     /**
@@ -3063,18 +3211,6 @@ export type MetadataResponse = {
         [key: string]: unknown;
     };
     /**
-     * Field Sources
-     */
-    field_sources?: {
-        [key: string]: unknown;
-    };
-    /**
-     * Raw
-     */
-    raw?: {
-        [key: string]: unknown;
-    };
-    /**
      * Locked Fields
      */
     locked_fields?: Array<MetadataField>;
@@ -3091,6 +3227,18 @@ export type MetadataResponse = {
      * Updated At
      */
     updated_at?: string | null;
+    /**
+     * Field Sources
+     */
+    field_sources?: {
+        [key: string]: unknown;
+    };
+    /**
+     * Raw
+     */
+    raw?: {
+        [key: string]: unknown;
+    };
 };
 
 /**
@@ -3151,6 +3299,36 @@ export type MetadataUserTagsRequest = {
      * attach 为并入, detach 为移除; 两者均幂等
      */
     action: 'attach' | 'detach';
+};
+
+/**
+ * MetadataUserTagsResponse
+ */
+export type MetadataUserTagsResponse = {
+    /**
+     * Changed
+     *
+     * 至少一处挂载关系发生变更的条目数
+     */
+    changed: number;
+    /**
+     * Unchanged
+     *
+     * 已处于目标态、未修改的条目数
+     */
+    unchanged: number;
+    /**
+     * Missing
+     *
+     * 不存在的条目 id 数
+     */
+    missing: number;
+    /**
+     * Skipped
+     *
+     * 请求内重复的条目 id 数量; 已去重
+     */
+    skipped?: number;
 };
 
 /**
@@ -4601,7 +4779,7 @@ export type SemanticDiagnosticsResponse = {
 /**
  * SemanticHitInfo
  *
- * 语义检索的命中图片: 与列表项按 id 对应, 不扩展 ``MetadataResponse`` 本身.
+ * 语义检索的命中图片: 与列表项按 id 对应, 不扩展列表项模型本身.
  */
 export type SemanticHitInfo = {
     /**
@@ -5247,6 +5425,52 @@ export type TaskListResponse = {
      * Total
      */
     total: number;
+};
+
+/**
+ * TaskLogEntry
+ *
+ * 与 WebSocket LOG 事件同形; ``context`` 是原日志里未映射到固定字段的键.
+ */
+export type TaskLogEntry = {
+    /**
+     * Timestamp
+     */
+    timestamp?: string | null;
+    /**
+     * Level
+     */
+    level: string;
+    /**
+     * Source
+     */
+    source: string;
+    /**
+     * Message
+     */
+    message: string;
+    /**
+     * Context
+     */
+    context?: {
+        [key: string]: JsonValue;
+    };
+};
+
+/**
+ * TaskLogPage
+ */
+export type TaskLogPage = {
+    /**
+     * Entries
+     */
+    entries?: Array<TaskLogEntry>;
+    /**
+     * Truncated
+     *
+     * ``entries`` 之前还有未下发的行
+     */
+    truncated?: boolean;
 };
 
 /**
@@ -6191,7 +6415,7 @@ export type ListMediaData = {
         /**
          * Definition
          *
-         * Filter by definition (8K/4K/1080p/…)
+         * Filter by definition (8K/4K/1440p/1080p/720p/480p; SD/HD aliases)
          */
         definition?: string | null;
         /**
@@ -6490,7 +6714,7 @@ export type ListMetadataData = {
         /**
          * Definition
          *
-         * Filter by linked file definition (8K/4K/1080p/…)
+         * Filter by linked file definition (8K/4K/1440p/1080p/720p/480p; SD/HD aliases)
          */
         definition?: string | null;
         /**
@@ -6597,7 +6821,7 @@ export type BatchMetadataUserTagsResponses = {
     /**
      * Successful Response
      */
-    200: UserTagLinksResponse;
+    200: MetadataUserTagsResponse;
 };
 
 export type BatchMetadataUserTagsResponse = BatchMetadataUserTagsResponses[keyof BatchMetadataUserTagsResponses];
@@ -9143,6 +9367,43 @@ export type GetTaskResponses = {
 };
 
 export type GetTaskResponse = GetTaskResponses[keyof GetTaskResponses];
+
+export type GetTaskLogData = {
+    body?: never;
+    path: {
+        /**
+         * Task Id
+         */
+        task_id: number;
+    };
+    query?: {
+        /**
+         * Limit
+         *
+         * Max entries from the end of task.log
+         */
+        limit?: number;
+    };
+    url: '/api/tasks/{task_id}/log';
+};
+
+export type GetTaskLogErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetTaskLogError = GetTaskLogErrors[keyof GetTaskLogErrors];
+
+export type GetTaskLogResponses = {
+    /**
+     * Successful Response
+     */
+    200: TaskLogPage;
+};
+
+export type GetTaskLogResponse = GetTaskLogResponses[keyof GetTaskLogResponses];
 
 export type GetTaskRecordData = {
     body?: never;

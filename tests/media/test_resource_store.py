@@ -255,6 +255,58 @@ class TestGetByUrlHash:
     async def test_missing_hash_returns_none(self, resource_store: ResourceStore):
         assert await resource_store.get_by_url_hash("deadbeefdeadbeef") is None
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "url_hash",
+        [
+            "",
+            "%",
+            "*",
+            "?",
+            "..",
+            "ab%",
+            "ab_",
+            "DEADBEEFDEADBEEF",
+            "deadbeefdeadbee",
+            "deadbeefdeadbeef0",
+            "deadbeefdeadbeeg",
+        ],
+        ids=[
+            "empty",
+            "like-wildcard",
+            "glob-star",
+            "glob-question",
+            "parent",
+            "shard-like",
+            "shard-underscore",
+            "uppercase",
+            "short",
+            "long",
+            "non-hex",
+        ],
+    )
+    async def test_malformed_hash_returns_none(self, resource_store: ResourceStore, url_hash: str):
+        """形状不符一律当不存在: GLOB 的 `*` / `?` / `[` 与大小写都会让匹配越出该 hash 的分片."""
+        assert await resource_store.get_by_url_hash(url_hash) is None
+
+    @pytest.mark.asyncio
+    async def test_wildcard_does_not_reach_existing_record(self, resource_store: ResourceStore):
+        """库里有可命中的资源时, 通配输入也不能靠前缀把它取出来."""
+
+        async def producer(dest: Path) -> bool:
+            dest.write_bytes(b"img")
+            return True
+
+        res = await resource_store.acquire_derived("https://s/t.jpg", "crop", "0.7", producer)
+        assert res is not None
+        h = ResourceStore.url_hash(res.url)
+
+        for probe in ("%", "*", f"{h[:2]}%", f"{h[:2]}*", f"{h[:-1]}*"):
+            assert await resource_store.get_by_url_hash(probe) is None, probe
+
+        found = await resource_store.get_by_url_hash(h)
+        assert found is not None and found[0].url == res.url
+
 
 class TestInternalUrl:
     @pytest.mark.parametrize(
@@ -421,6 +473,32 @@ async def test_acquire_records_content_type(
     record = await resource_store.get_by_url(url)
     assert record is not None
     assert record.mime_type == "image/png"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("content", "image_only", "stored"),
+    [
+        (b"<html>challenge</html>", True, False),
+        (b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00", True, False),  # 能识别, 但不是图片
+        (b"", True, False),
+        (b"\x89PNG\r\n\x1a\n" + b"\x00" * 8, True, True),
+        (b"<html>challenge</html>", False, True),  # 缺省不限制内容类型 (刮削下载)
+    ],
+)
+async def test_acquire_image_only(
+    resource_store: ResourceStore, monkeypatch: pytest.MonkeyPatch, content: bytes, image_only: bool, stored: bool
+):
+    """``image_only`` 下非图片内容不写入记录、不保留文件; 缺省时照常写入."""
+    client, _ = _stub_client(monkeypatch, final_url=_REQUEST, content=content)
+    dest = resource_store._compute_path(_REQUEST)
+
+    path = await resource_store.acquire(_REQUEST, client, image_only=image_only)
+
+    assert (path is not None) is stored
+    assert (await resource_store.get_by_url(_REQUEST) is not None) is stored
+    assert dest.exists() is stored
+    assert _siblings(dest) == []
 
 
 @pytest.mark.asyncio
