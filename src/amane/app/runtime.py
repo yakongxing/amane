@@ -549,9 +549,9 @@ class AppRuntime:
 def build_hot_translator(
     hot: HotSettings, cache: TranslationCache | None, coalescer: TranslationCoalescer | None
 ) -> Translator | None:
-    """未启用或缺密钥时返回 None. 代理沿用 network.proxy; 缓存与并发合并状态是会话级, 由调用方复用同一实例."""
+    """缺密钥时返回 None. 代理沿用 network.proxy; 缓存与并发合并状态是会话级, 由调用方复用同一实例."""
     return build_translator(
-        enabled=hot.llm.enabled,
+        enabled=True,
         api_type=hot.llm.api_type,
         api_key=hot.llm.api_key,
         base_url=hot.llm.base_url,

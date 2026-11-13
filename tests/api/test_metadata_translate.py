@@ -1,12 +1,15 @@
 """POST /metadata/{id}/translate: 复用运行时 translator 与热配置, 译文写库并覆盖已有 NFO."""
 
+import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import httpx2
 import pytest
 
 from amane.enums import Language, MetadataField
 from amane.llm import LLMTranslator
+from amane.llm import translator as translator_module
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -158,14 +161,14 @@ async def test_translate_rejects_unusable_requests(client: AsyncClient, repo: Re
     meta = await repo.upsert_metadata(number="ABC-123", title=JP_TITLE)
     assert meta.id is not None
 
-    # 默认未启用 LLM: 运行时没有 translator
+    # 未配置密钥时, 手动翻译不可用.
     assert app.state.runtime.translator is None
     resp = await client.post(f"metadata/{meta.id}/translate")
     assert resp.status_code == 503
-    assert "未启用" in resp.json()["detail"]
+    assert resp.json()["detail"] == "LLM 翻译未配置 API Key"
 
-    # 热配置启用并给出密钥后, 重建出的 translator 立即对端点生效
-    patched = await client.patch("config", json={"llm": {"enabled": True, "api_key": "sk-test"}})
+    # 配置密钥后, 即使自动翻译关闭也会创建 translator.
+    patched = await client.patch("config", json={"llm": {"enabled": False, "api_key": "sk-test"}})
     assert patched.status_code == 200, patched.text
     assert isinstance(app.state.runtime.translator, LLMTranslator)
 
@@ -180,3 +183,64 @@ async def test_translate_rejects_unusable_requests(client: AsyncClient, repo: Re
     empty = await client.post(f"metadata/{meta.id}/translate")
     assert empty.status_code == 400
     assert empty.json()["detail"] == "未配置需要翻译的字段"
+
+
+@pytest.mark.asyncio
+async def test_manual_translate_uses_config_with_auto_translation_disabled(
+    client: AsyncClient, repo: Repository, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    requests: list[httpx2.Request] = []
+
+    def respond(request: httpx2.Request) -> httpx2.Response:
+        requests.append(request)
+        return httpx2.Response(
+            200,
+            json={
+                "id": "chatcmpl-test",
+                "object": "chat.completion",
+                "created": 0,
+                "model": "configured-translator",
+                "choices": [
+                    {"index": 0, "message": {"role": "assistant", "content": ZH_TITLE}, "finish_reason": "stop"}
+                ],
+            },
+        )
+
+    real_client = httpx2.AsyncClient
+
+    def mock_client(*, proxy: str | None, timeout: httpx2.Timeout, follow_redirects: bool) -> httpx2.AsyncClient:
+        return real_client(transport=httpx2.MockTransport(respond), timeout=timeout, follow_redirects=follow_redirects)
+
+    monkeypatch.setattr(translator_module, "AsyncClient", mock_client)
+    for index, enabled in enumerate((False, True, False)):
+        patched = await client.patch(
+            "config",
+            json={
+                "llm": {
+                    "enabled": enabled,
+                    "api_key": "sk-test-manual",
+                    "base_url": "https://translation.example/v1",
+                    "model": "configured-translator",
+                    "translate_fields": ["title"],
+                    "system_prompt": "请翻译为{target_lang}",
+                }
+            },
+        )
+        assert patched.status_code == 200, patched.text
+        meta = await repo.upsert_metadata(number=f"ABC-{123 + index}", title=JP_TITLE, plot=JP_PLOT)
+        assert meta.id is not None
+
+        resp = await client.post(f"metadata/{meta.id}/translate")
+
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["translated_fields"] == ["title"]
+        assert (resp.json()["metadata"]["title"], resp.json()["metadata"]["plot"]) == (ZH_TITLE, JP_PLOT)
+
+    # 热重载复用译文缓存; 上游请求仍使用设置中的地址、凭据、模型与提示词.
+    assert len(requests) == 1
+    request = requests[0]
+    assert str(request.url) == "https://translation.example/v1/chat/completions"
+    assert request.headers["Authorization"] == "Bearer sk-test-manual"
+    body = json.loads(request.content)
+    assert body["model"] == "configured-translator"
+    assert any("请翻译为简体中文" in message["content"] for message in body["messages"])

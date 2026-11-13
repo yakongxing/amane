@@ -596,8 +596,9 @@ class TestRawCacheWriteback:
 
 class TestScrapeTranslation:
     @pytest.mark.asyncio(loop_scope="function")
-    async def test_translator_applied_to_title(self, repo: Repository, factory, resource_store):
-        """配置 translator + field_language 时, 标题被翻译后再持久化."""
+    @pytest.mark.parametrize("enabled", [False, True])
+    async def test_translator_applied_to_title(self, repo: Repository, factory, resource_store, enabled: bool):
+        """自动翻译开关控制刮削时是否翻译, 关闭时即使提供 translator 也保留原文."""
         from amane.enums import Language, MetadataField
 
         class StubTranslator:
@@ -605,6 +606,7 @@ class TestScrapeTranslation:
                 return f"[{target}]{text}"
 
         config = HotSettings()
+        config.llm.enabled = enabled
         config.scraping.field_language = {MetadataField.TITLE: Language.ZH_CN}
         config.llm.translate_fields = [MetadataField.TITLE]
         h = ScrapeHandler(
@@ -619,7 +621,7 @@ class TestScrapeTranslation:
 
         metadata = await repo.get_metadata_by_number("MIDV-123")
         assert metadata is not None
-        assert metadata.title == "[zh_cn]Mock Title"
+        assert metadata.title == ("[zh_cn]Mock Title" if enabled else "Mock Title")
 
     @pytest.mark.asyncio(loop_scope="function")
     async def test_translator_failure_keeps_original(self, repo: Repository, factory, resource_store):
@@ -631,6 +633,7 @@ class TestScrapeTranslation:
                 raise RuntimeError("llm down")
 
         config = HotSettings()
+        config.llm.enabled = True
         config.scraping.field_language = {MetadataField.TITLE: Language.ZH_CN}
         h = ScrapeHandler(
             repo=repo,

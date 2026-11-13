@@ -74,7 +74,6 @@ import { type JSONSchemaObject, resolveSchema } from "@/components/schema-form/s
 import { SchemaForm } from "@/components/schema-form/schema-form";
 import { extractErrorMessage } from "@/lib/api-error";
 import { confirm } from "@/lib/confirm";
-import { useConfig } from "@/hooks/use-config";
 import { USER_TAG_FACET_LIST } from "@/lib/facets";
 import { FIELD_LABEL_KEY, LOCKABLE_FIELDS } from "@/lib/media/metadata-fields";
 import { proxyImageUrl } from "@/lib/utils";
@@ -277,9 +276,6 @@ function TitleDetailPage() {
         color: "red",
       }),
   });
-
-  const { data: config } = useConfig();
-  const llmEnabled = config?.llm?.enabled === true;
 
   const translateMutation = useMutation({
     ...translateMetadataMutation(),
@@ -882,17 +878,12 @@ function TitleDetailPage() {
             >
               {t("common:actions.edit")}
             </Button>
-            <Tooltip
-              label={llmEnabled ? t("detail.translate.hint") : t("detail.translate.disabled")}
-              multiline
-              w={260}
-            >
+            <Tooltip label={t("detail.translate.hint")} multiline w={260}>
               <Button
                 size="xs"
                 variant="light"
                 leftSection={<IconLanguage size={14} />}
                 loading={translateMutation.isPending}
-                disabled={!llmEnabled}
                 onClick={() => translateMutation.mutate({ path: { metadata_id: id } })}
               >
                 {t("detail.translate.action")}

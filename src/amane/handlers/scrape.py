@@ -145,7 +145,7 @@ class ScrapeHandler(TaskHandler[ScrapePayload, ScrapeResult]):
         await self.report_progress(len(SCALAR_FIELDS), progress_total, "fetch")
 
         # 翻译文本字段; 失败不阻断刮削.
-        if self._translator is not None:
+        if self._config.llm.enabled and self._translator is not None:
             translated = await translate_text_fields(
                 self._translator,
                 title=result.metadata.title,

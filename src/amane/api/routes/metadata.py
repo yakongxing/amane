@@ -370,7 +370,7 @@ async def translate_metadata(metadata_id: int, repo: RepoDep, runtime: RuntimeDe
     """
     translator = runtime.translator
     if translator is None:
-        raise HTTPException(status_code=503, detail="LLM 翻译未启用或未配置 API Key")
+        raise HTTPException(status_code=503, detail="LLM 翻译未配置 API Key")
     hot = runtime.config.hot
     if not hot.llm.translate_fields:
         raise HTTPException(status_code=400, detail="未配置需要翻译的字段")

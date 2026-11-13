@@ -18,7 +18,7 @@
 
 ## 翻译嵌入点
 
-两个调用点共用 `handlers/translate.py::translate_text_fields` (字段集与目标语言判定只在这里) 与 `AppRuntime.translator` 同一实例 (共用限速):
+两个调用点共用 `handlers/translate.py::translate_text_fields` (字段集与目标语言判定只在这里) 与 `AppRuntime.translator` 同一实例 (共用限速); `llm.enabled` 仅控制刮削自动翻译, 手动翻译始终使用当前 LLM 配置:
 
 - **刮削**: `ScrapeHandler.handle` 中 `aggregate()` 之后、`upsert_metadata()` 之前, 就地改写 `AggregatedMetadata`, 与 image materialize 并列为聚合后的后处理步骤.
 - **手动** (`POST /metadata/{id}/translate`): 输入是库内当前值而非 `raw`, 译文按 `WriteMode.MANUAL` 写入 (锁定字段, 重刮不再覆盖), 再经 `handlers/file.py::rewrite_existing_nfos` 覆盖已有 NFO. NFO 是派生文件的规则不变: 只覆盖按库模板定位到的现存文件, 不搬视频、不新建; 模板可能引用被翻译的字段, 定位先用翻译前的条目渲染.
