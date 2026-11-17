@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from amane.library import LibraryFileKind, LibraryScan, UnwantedKind
 
 
@@ -90,13 +92,17 @@ class TestUnwantedKind:
         assert scan.unwanted_kind(Path("/lib/.amane_trash/ad.mkv")) is None
 
 
-def test_recursive_absolute_scope(tmp_path: Path) -> None:
+@pytest.mark.parametrize("native_separator", [False, True], ids=["posix", "native"])
+def test_recursive_absolute_scope(tmp_path: Path, native_separator: bool) -> None:
     root = tmp_path / "scope"
-    scan = LibraryScan(patterns=[f"{root.as_posix()}/**/*.strm"])
+    pattern = root / "**" / "*.strm"
+    scan = LibraryScan(patterns=[str(pattern) if native_separator else pattern.as_posix()])
     for path, expected in [
         (root / "a.strm", LibraryFileKind.MEDIA),
+        (root / "one" / "a.strm", LibraryFileKind.MEDIA),
         (root / "one" / "two" / "a.strm", LibraryFileKind.MEDIA),
         (root / "one" / "a.mp4", None),
         (tmp_path / "outside" / "a.strm", None),
+        (tmp_path / "scope-other" / "a.strm", None),
     ]:
         assert scan.classify(path) is expected

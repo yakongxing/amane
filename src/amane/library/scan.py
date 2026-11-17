@@ -90,7 +90,10 @@ class LibraryScan:
         # glob 或扩展名命中 → 媒体; 其余不产出.
         if self.patterns:
             # 绝对路径模式采用递归匹配, 相对文件名模式按路径末尾匹配.
-            if any(path.full_match(p) if p.startswith("/") else path.match(p) for p in self.patterns):
+            if any(
+                path.full_match(p) if p.startswith("/") or Path(p).is_absolute() else path.match(p)
+                for p in self.patterns
+            ):
                 return LibraryFileKind.MEDIA
             return None
         if path.suffix.lower() in self.media_extensions:
